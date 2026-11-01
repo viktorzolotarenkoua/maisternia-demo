@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Майстерня молодіжної роботи — онлайн-демо гри</title>
+<meta name="description" content="Спробуйте карткову гру «Майстерня молодіжної роботи» онлайн: вільний стіл, режим для тренінгу, базова гра й «Вгадай слово».">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Майстерня молодіжної роботи — спробуйте гру онлайн">
+<meta property="og:description" content="Витягніть картки, зіграйте раунд базової гри чи «Вгадай слово» просто в браузері.">
+<meta property="og:image" content="https://demo.maisternia-youth-work.com.ua/og.jpg">
+<meta property="og:url" content="https://demo.maisternia-youth-work.com.ua/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#5F8034">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="favicon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<style>
+/* Layout: full-screen soft cloth with even light; world plane (cards, decks, box) fits the screen and can be zoomed/panned; logo + modes float top-left, help sits bottom-left with its "?", tools bottom-right. Single deliberate look. */
+:root{
+  --felt:#5F8034;
+  --card:#DEF2C5;
+  --ink:#476136;
+  --green:#51643C;
+  --deep:#40542D;
+  --light:#E5F1D4;
+  --offwhite:#F6FAF1;
+  --text:#1d2814;
+  --shadow:14,24,6;
+  --f-text:"Fixel Text",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --f-display:"Fixel Display","Fixel Text",system-ui,-apple-system,Arial,sans-serif;
+  color-scheme:light;
+}
+@font-face{font-family:"Fixel Text";src:url(fonts/FixelText-Regular.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Fixel Text";src:url(fonts/FixelText-Medium.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Fixel Text";src:url(fonts/FixelText-SemiBold.woff2) format("woff2");font-weight:600;font-display:swap}
+@font-face{font-family:"Fixel Text";src:url(fonts/FixelText-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Fixel Display";src:url(fonts/FixelDisplay-SemiBold.woff2) format("woff2");font-weight:600;font-display:swap}
+
+[hidden]{display:none!important}
+html,body{height:100%;overflow:hidden}
+body{background:var(--felt);color:var(--ink);font-family:var(--f-text);-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button{font:inherit;color:inherit}
+svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:square;flex-shrink:0}
+
+/* ---------- table ---------- */
+#viewport{position:fixed;inset:0;z-index:0;overflow:hidden;touch-action:none;cursor:grab;
+  background-color:var(--felt);background-image:url(img/fur.png);background-blend-mode:soft-light;background-size:384px}
+#viewport.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;perspective:2600px}
+
+/* ---------- cards ---------- */
+.card{position:absolute;left:0;top:0;width:200px;height:283px;transform-origin:50% 50%;will-change:transform;perspective:900px;cursor:pointer;outline:none}
+.sh{position:absolute;inset:0;border-radius:11px;background:rgba(var(--shadow),.62);pointer-events:none}
+.sh-soft{filter:blur(9px)}
+.sh-contact{filter:blur(1.2px);transform:translate(1px,1.5px)}
+.flip{position:absolute;inset:0;transform-style:preserve-3d}
+.face{position:absolute;inset:0;border-radius:10px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--card);container-type:inline-size}
+.face img{width:100%;height:100%;display:block;pointer-events:none;user-select:none;-webkit-user-drag:none}
+.face::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 .6px rgba(255,255,255,.35)}
+.back{transform:rotateY(180deg)}
+.custom{position:absolute;left:9%;right:9%;top:23%;height:34%;overflow:hidden;font:500 6.6cqw/1.32 var(--f-text);color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.custom:empty{display:none}
+.badge{position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);display:none;align-items:center;gap:6px;background:var(--light);color:var(--ink);font:600 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;padding:9px 14px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 14px rgba(var(--shadow),.35)}
+.card.chosen .badge{display:flex}
+.card.chosen .sh-soft{background:rgba(229,241,212,.9);filter:blur(14px)}
+#world.has-chosen .card.ring:not(.chosen) .face img{filter:brightness(.82) saturate(.75)}
+.card:focus-visible .face.front{box-shadow:0 0 0 4px var(--offwhite)}
+
+/* ---------- decks, slots, labels ---------- */
+.deck{position:absolute;left:0;top:0;width:200px;height:283px;border-radius:10px;cursor:pointer;transition:transform .7s cubic-bezier(.3,.7,.2,1);outline:none}
+.deck .stack{position:absolute;inset:0;border-radius:10px;background:var(--card)}
+.deck .stack img{width:100%;height:100%;border-radius:10px;display:block;pointer-events:none}
+.deck.empty .stack{background:transparent;box-shadow:none!important;border:2px dashed rgba(229,241,212,.55)}
+.deck.empty .stack img{display:none}
+.deck .label,.wlabel{font:600 15px/1.15 var(--f-text);letter-spacing:.12em;text-transform:uppercase;color:var(--light);pointer-events:none;white-space:nowrap;text-align:center}
+.deck .label{position:absolute;left:0;width:200px;top:300px}
+.deck .label b,.wlabel b{font-weight:500;opacity:.72}
+.deck:focus-visible .stack{outline:4px solid var(--offwhite);outline-offset:4px}
+.deck.pulse::before{content:"";position:absolute;inset:-6px;border-radius:16px;border:3px solid var(--light);animation:pulse 1.8s ease-out infinite;pointer-events:none}
+@keyframes pulse{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(1.14)}}
+.slot{position:absolute;left:0;top:0;width:200px;height:283px;border-radius:10px;border:2px dashed rgba(229,241,212,.35);pointer-events:none;transition:opacity .4s, transform .7s cubic-bezier(.3,.7,.2,1);display:flex;align-items:center;justify-content:center;
+  font:600 14px/1.2 var(--f-text);letter-spacing:.12em;text-transform:uppercase;color:rgba(229,241,212,.6);text-align:center}
+.slot.off{opacity:0}
+.wlabel{position:absolute;left:0;top:0;width:260px;transform-origin:50% 0;transition:transform .7s cubic-bezier(.3,.7,.2,1),opacity .3s}
+.wlabel .tag{display:inline-block;margin-top:6px;padding:5px 9px;border-radius:99px;background:var(--light);color:var(--ink);font-size:12px;letter-spacing:.1em}
+.wlabel.on{color:var(--offwhite)}
+.wlabel.dim{opacity:.55}
+#world.game .wlabel{font-size:19px}
+#world.game .wlabel .tag{font-size:13px}
+#world.port .deck .label,#world.port .wlabel{font-size:27px}
+#world.port.game .wlabel{font-size:30px}
+#world.port .wlabel .tag{font-size:22px;padding:8px 14px}
+.wtimer{position:absolute;left:0;top:0;width:150px;height:150px;transition:opacity .3s}
+.wtimer svg{width:100%;height:100%;transform:rotate(-90deg)}
+.wtimer circle{fill:none;stroke-width:10}
+.wtimer .bgc{stroke:rgba(229,241,212,.22);fill:rgba(20,34,10,.25)}
+.wtimer .fg{stroke:var(--light);stroke-linecap:round;transition:stroke .3s}
+.wtimer.low .fg{stroke:#F6FAF1}
+.wtimer span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:600 50px/1 var(--f-display);color:var(--light);font-variant-numeric:tabular-nums}
+
+/* ---------- box (folded from the real dieline) ---------- */
+.boxcam{position:absolute;left:0;top:0;width:0;height:0;perspective:1800px;transition:perspective-origin .8s}
+#box{position:absolute;left:0;top:0;width:333px;height:476px;transform-style:preserve-3d;cursor:pointer;outline:none;transition:transform .8s cubic-bezier(.3,.7,.2,1)}
+#box .bshadow{position:absolute;left:-71px;top:71px;width:476px;height:333px;border-radius:14px;background:rgba(var(--shadow),.6);filter:blur(22px);transform:translate(30px,46px);pointer-events:none}
+#box .bshadow.c{filter:blur(4px);transform:translate(6px,8px);background:rgba(var(--shadow),.55)}
+#box .b3d{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateZ(90deg)}
+#box .lid{position:absolute;inset:0;transform-style:preserve-3d}
+#box .f{position:absolute;background-size:100% 100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+#box .f::after{content:"";position:absolute;inset:0;background:rgba(10,20,4,var(--dk,0))}
+#box .top{left:0;top:0;width:333px;height:476px;background-image:url(img/box-top.webp);transform:translateZ(175px);border-radius:2px}
+#box .top::after{background:linear-gradient(115deg,rgba(255,255,255,.12),rgba(255,255,255,0) 50%)}
+#box .up{left:0;top:-175px;width:333px;height:175px;background-image:url(img/box-up.webp);transform-origin:50% 100%;transform:translateZ(175px) rotateX(90deg);--dk:.30}
+#box .down{left:0;top:476px;width:333px;height:175px;background-image:url(img/box-down.webp);transform-origin:50% 0;transform:translateZ(175px) rotateX(-90deg);--dk:.06}
+#box .left{left:-175px;top:0;width:175px;height:476px;background-image:url(img/box-left.webp);transform-origin:100% 50%;transform:translateZ(175px) rotateY(-90deg);--dk:.04}
+#box .right{left:333px;top:0;width:175px;height:476px;background-image:url(img/box-right.webp);transform-origin:0 50%;transform:translateZ(175px) rotateY(90deg);--dk:.24}
+#box .core{left:2px;top:2px;width:329px;height:472px;background:#CFE3B6;transform:translateZ(173px)}
+/* only the lid lifts (as in v1): the table shadow shows in the gap under it */
+#box.bump .lid{animation:lidhop .9s cubic-bezier(.3,.7,.3,1)}
+@keyframes lidhop{0%{transform:translateZ(0)}22%{transform:translateZ(16px) rotateZ(-.6deg)}45%{transform:translateZ(0)}62%{transform:translateZ(6px) rotateZ(.3deg)}80%,100%{transform:translateZ(0)}}
+#box:focus-visible .top{outline:4px solid var(--offwhite);outline-offset:6px}
+
+/* ---------- buttons ---------- */
+.tile{background:var(--light);border-radius:20px;box-shadow:0 14px 40px rgba(var(--shadow),.32),0 2px 6px rgba(var(--shadow),.18)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:2px solid var(--green);background:transparent;color:var(--green);border-radius:0;
+  font:500 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:rgba(81,100,60,.1)}
+.btn.fill,.btn[aria-pressed="true"]{background:var(--green);color:var(--light)}
+.btn.fill:hover{background:var(--deep)}
+.btn.icon{width:40px;padding:0}
+.btn.plain{border-color:transparent}
+.btn.plain[aria-pressed="true"]{border-color:var(--green)}
+.btn.big{height:52px;padding:0 22px;font-size:14px}
+.btn:disabled{opacity:.35;cursor:default;background:transparent}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.cbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border:0;background:var(--light);color:var(--green);border-radius:0;cursor:pointer;white-space:nowrap;text-decoration:none;
+  font:600 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;box-shadow:0 6px 18px rgba(var(--shadow),.32),0 1px 3px rgba(var(--shadow),.2)}
+.cbtn:hover{background:var(--offwhite)}
+.cbtn.dark,.cbtn[aria-pressed="true"]{background:var(--deep);color:var(--light)}
+.cbtn.dark:hover,.cbtn[aria-pressed="true"]:hover{background:#4A6034}
+.cbtn.icon{width:44px;padding:0}
+.cbtn:focus-visible{outline:3px solid var(--offwhite);outline-offset:2px}
+.ibtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:2px solid var(--light);background:transparent;color:var(--light);border-radius:0;
+  font:600 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;white-space:nowrap;text-decoration:none}
+.ibtn:hover{background:rgba(229,241,212,.14)}
+.ibtn.fill{background:var(--light);color:var(--green)}
+.ibtn:focus-visible,#logo:focus-visible{outline:3px solid var(--offwhite);outline-offset:3px}
+
+/* ---------- header ---------- */
+#top{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 18px);left:max(20px,env(safe-area-inset-left,0px));right:max(20px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:28px;pointer-events:none}
+#top>*{pointer-events:auto}
+#logo{display:block;flex-shrink:0}
+#logo img{display:block;height:42px;width:auto;filter:drop-shadow(0 4px 10px rgba(var(--shadow),.28))}
+#modes{display:flex;box-shadow:0 8px 24px rgba(var(--shadow),.28)}
+.mbtn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border:0;background:var(--light);color:var(--green);cursor:pointer;font:600 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.mbtn+.mbtn{box-shadow:inset 1.5px 0 0 rgba(81,100,60,.16)}
+.mbtn:hover{background:var(--offwhite)}
+.mbtn[aria-pressed="true"]{background:var(--deep);color:var(--light)}
+.mbtn:focus-visible{outline:3px solid var(--offwhite);outline-offset:2px;position:relative;z-index:1}
+#modeDrop{position:relative;margin-left:auto;display:none}
+#modeBtn{background:var(--light);border-color:var(--light);color:var(--green);box-shadow:0 8px 24px rgba(var(--shadow),.3)}
+#modeBtn:hover{background:var(--offwhite)}
+#modeBtn svg{width:16px;height:16px;transition:transform .2s}
+#modeBtn[aria-expanded="true"] svg{transform:rotate(180deg)}
+#modeMenu{position:absolute;right:0;top:calc(100% + 8px);min-width:240px;padding:8px;display:flex;flex-direction:column;border-radius:16px}
+.mitem{display:flex;align-items:center;justify-content:space-between;gap:12px;height:48px;padding:0 14px;border:0;background:transparent;color:var(--green);text-align:left;cursor:pointer;font:600 13px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase}
+.mitem:hover{background:rgba(81,100,60,.1)}
+.mitem[aria-current="true"]{background:var(--green);color:var(--light)}
+.mitem .new{font:600 10px/1 var(--f-text);letter-spacing:.08em;padding:4px 6px;background:var(--light);color:var(--green);border:1px solid currentColor}
+.mitem[aria-current="true"] .new{border-color:var(--light)}
+
+/* ---------- help corner: "?" and the hint live together ---------- */
+#help{position:fixed;z-index:20;left:max(20px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;align-items:flex-end;gap:10px}
+#helpBtn{width:48px;height:48px;padding:0;flex-shrink:0}
+#helpBtn svg{width:22px;height:22px}
+#hint{max-width:380px;font:400 15.5px/1.4 var(--f-text);color:var(--text);padding:13px 18px;border-radius:16px;text-wrap:pretty}
+#hint b{font-weight:600;color:var(--ink)}
+#help.closed #hint,body.has-stage #hint{display:none}
+
+/* ---------- toolbar ---------- */
+#bar{position:fixed;z-index:20;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px);display:flex;align-items:center;justify-content:flex-end;gap:12px}
+#bar .grp{display:flex;align-items:center;gap:8px}
+#bar .zg{padding:6px;border-radius:14px;gap:2px}
+#bar .lab{font:600 12px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin:0 2px 0 4px;text-shadow:0 1px 3px rgba(var(--shadow),.4)}
+#bar .seg{display:flex;box-shadow:0 6px 18px rgba(var(--shadow),.32)}
+#bar .seg .cbtn{width:44px;padding:0;box-shadow:none}
+#bar .seg .cbtn+.cbtn{box-shadow:inset 1.5px 0 0 rgba(81,100,60,.16)}
+#zpct{width:56px;padding:0;font:600 12px/1 var(--f-text);letter-spacing:.02em;font-variant-numeric:tabular-nums}
+
+/* ---------- stage (game prompts) ---------- */
+#stage{position:fixed;inset:0;z-index:35;display:flex;align-items:center;justify-content:center;padding:90px max(16px,env(safe-area-inset-right,0px)) 100px max(16px,env(safe-area-inset-left,0px));pointer-events:none}
+#stage.dim{pointer-events:auto;background:rgba(18,30,8,.42)}
+#stage.dock{align-items:flex-end;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 96px)}
+#stage.curtain{pointer-events:auto;background-color:#3F5A24;background-image:url(img/fur.png);background-blend-mode:soft-light;background-size:420px}
+#stage .tile{pointer-events:auto;max-width:460px;width:100%;padding:28px;display:flex;flex-direction:column;gap:14px;animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+#stage.dock .tile{max-width:520px;padding:18px 20px;flex-direction:row;align-items:center;gap:16px}
+#stage.dock .tile .txt{flex:1;min-width:0}
+#stage h2{margin:0;font:600 28px/1.08 var(--f-display);letter-spacing:-.03em;color:var(--green);text-wrap:balance}
+#stage p{margin:0;font:400 16.5px/1.45 var(--f-text);color:var(--text);text-wrap:pretty}
+#stage .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#stage .row .k{font:500 12px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;color:var(--green);min-width:120px}
+#stage .seg{display:flex}
+#stage .seg .btn{min-width:46px;padding:0 12px}
+#stage .seg .btn+.btn{margin-left:-2px}
+#stage .names{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#stage input{height:42px;border:2px solid var(--green);border-radius:0;background:var(--offwhite);padding:0 12px;font:500 15px/1 var(--f-text);color:var(--text);min-width:0}
+#stage input:focus-visible{outline:3px solid var(--ink);outline-offset:1px}
+#stage .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+#stage .acts .btn{flex:1 1 auto}
+#stage .small{font-size:14px;color:var(--green)}
+#stage .score{display:flex;flex-direction:column;gap:6px;margin:2px 0}
+#stage .score div{display:flex;justify-content:space-between;padding:10px 14px;background:var(--offwhite);font:500 16px/1 var(--f-text);color:var(--text)}
+#stage .score div.win{background:var(--green);color:var(--light)}
+#stage .score b{font-weight:700;font-variant-numeric:tabular-nums}
+#stage.curtain .tile{background:transparent;box-shadow:none;text-align:center;align-items:center;max-width:420px}
+#stage.curtain h2{color:var(--light);font-size:34px}
+#stage.curtain p{color:var(--light);opacity:.9}
+@keyframes rise{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:none}}
+
+/* ---------- focus view ---------- */
+#focus{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:calc(env(safe-area-inset-top,0px) + 20px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 20px) max(16px,env(safe-area-inset-left,0px))}
+#focus .bg{position:absolute;inset:0;background:rgba(18,30,8,.66);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+#focus .big{position:relative;width:var(--bw);height:calc(var(--bw) * 89 / 63);border-radius:calc(var(--bw) * .05);overflow:hidden;box-shadow:0 40px 80px rgba(var(--shadow),.55),0 6px 16px rgba(var(--shadow),.35);container-type:inline-size;background:var(--card)}
+#focus .big img{width:100%;height:100%;display:block}
+#fpanel{position:relative;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;width:min(var(--bw),100%)}
+#fpanel:empty{display:none}
+#fpanel .ibtn{height:50px}
+#focus textarea{flex:1 1 100%;min-height:72px;resize:vertical;border:2px solid var(--light);border-radius:0;background:var(--offwhite);padding:10px 12px;font:400 16px/1.4 var(--f-text);color:var(--text)}
+#focus label{flex:1 1 100%;font:600 12px/1 var(--f-text);letter-spacing:.1em;text-transform:uppercase;color:var(--light)}
+#fclose{position:absolute;top:calc(env(safe-area-inset-top,0px) + 18px);right:max(18px,env(safe-area-inset-right,0px));width:48px;height:48px;padding:0}
+
+/* ---------- box CTA ---------- */
+#cta{position:fixed;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px))}
+#cta .bg{position:absolute;inset:0;background:rgba(18,30,8,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#cta .tile{position:relative;max-width:460px;width:100%;padding:30px;display:flex;flex-direction:column;gap:16px;animation:rise .45s cubic-bezier(.2,.8,.2,1)}
+#cta h2{margin:0;padding-right:40px;font:600 30px/1.05 var(--f-display);letter-spacing:-.03em;color:var(--green);text-wrap:balance}
+#cta p{margin:0;font:400 17px/1.45 var(--f-text);color:var(--text)}
+#cta .price{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#cta .pill{background:var(--green);color:var(--light);border-radius:99px;padding:10px 18px;font:600 22px/1 var(--f-display);letter-spacing:-.01em}
+#cta .note{font:400 14px/1.35 var(--f-text);color:var(--green);max-width:24ch}
+#cta .buy{height:54px;margin-top:6px}
+#ctaClose{position:absolute;top:16px;right:16px}
+
+#embedPoster{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(40,60,22,.55)}
+#embedPoster .tile{max-width:360px;padding:24px;display:flex;flex-direction:column;gap:12px}
+#embedPoster h2{margin:0;font:600 24px/1.1 var(--f-display);color:var(--green);letter-spacing:-.02em}
+#embedPoster p{margin:0;font:400 15.5px/1.45 var(--f-text);color:var(--text)}
+@media (max-width:1020px){#modes{display:none}#modeDrop{display:block}}
+@media (max-width:760px){
+  #top{top:calc(env(safe-area-inset-top,0px) + 12px);left:max(14px,env(safe-area-inset-left,0px));right:max(14px,env(safe-area-inset-right,0px))}
+  #logo img{height:30px}
+  #modeBtn{height:40px;padding:0 12px;font-size:12px;letter-spacing:.08em}
+  #help{left:max(14px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
+  #helpBtn{width:46px;height:46px}
+  #hint{position:fixed;left:max(14px,env(safe-area-inset-left,0px));right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 72px);max-width:none;font-size:14.5px;padding:12px 16px}
+  #wskip svg,#wok svg{display:none}
+  #bar #wskip,#bar #wok{flex:1 1 0}
+  #bar:has(#wok) .grp:first-child{flex:1}
+  #bar{left:calc(max(14px,env(safe-area-inset-left,0px)) + 58px);right:max(14px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);gap:10px}
+  #bar .zg{display:none}
+  #bar .cbtn{height:46px;font-size:12px;padding:0 14px}
+  #bar .cbtn.icon,#bar .seg .cbtn{width:46px;padding:0}
+  #stage{padding:76px 14px 84px}
+  #stage.dock{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 74px)}
+  #stage .tile{padding:22px}
+  #stage.dock .tile{padding:18px;flex-direction:column;align-items:stretch;gap:14px}
+  #stage.dock .acts .btn{width:100%}
+  #stage h2{font-size:24px}
+  #stage.curtain h2{font-size:28px}
+  #stage .row .k{min-width:0;flex:1 1 100%}
+  #stage .names{grid-template-columns:1fr}
+  #fclose{width:44px;height:44px}
+  #cta .tile{padding:24px}
+  #cta h2{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){.deck,.slot,#box,.wlabel{transition:none}.deck.pulse::before{animation:none}#box.bump .lid{animation:none}#cta .tile,#stage .tile{animation:none}}
+</style>
+
+<div id="viewport" aria-label="Ігровий стіл"><div id="world"></div></div>
+
+<header id="top">
+  <a id="logo" href="https://maisternia-youth-work.com.ua/" target="_blank" rel="noopener" aria-label="Сайт гри «Майстерня молодіжної роботи»"><img src="img/logo-word.png" alt="Майстерня"></a>
+  <nav id="modes" aria-label="Режим гри"></nav>
+  <div id="modeDrop">
+    <button class="ibtn fill" id="modeBtn" aria-haspopup="true" aria-expanded="false" aria-controls="modeMenu"><span id="modeBtnLabel">Вільний стіл</span><svg class="i" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5"/></svg></button>
+    <div id="modeMenu" class="tile" hidden></div>
+  </div>
+</header>
+
+<div id="help">
+  <button class="cbtn icon" id="helpBtn" aria-pressed="true" aria-controls="hint" aria-label="Підказка" title="Підказка"><svg class="i" viewBox="0 0 20 20"><path d="M7.2 7.4a2.9 2.9 0 1 1 4.2 2.6c-.9.5-1.4 1.1-1.4 2.1v.6"/><path d="M10 15.2v1.3"/></svg></button>
+  <div id="hint" class="tile" aria-live="polite"></div>
+</div>
+
+<div id="bar"></div>
+<div id="stage" hidden></div>
+
+<div id="focus" hidden>
+  <div class="bg"></div>
+  <button class="ibtn" id="fclose" aria-label="Закрити" title="Закрити"><svg class="i" viewBox="0 0 20 20"><path d="M4 4l12 12M16 4L4 16"/></svg></button>
+  <div class="big" id="big"><img id="bigImg" alt=""><div class="custom" id="bigCustom"></div></div>
+  <div id="fpanel"></div>
+</div>
+
+<div id="cta" hidden role="dialog" aria-modal="true" aria-labelledby="ctaTitle">
+  <div class="bg"></div>
+  <div class="tile">
+    <button class="btn plain icon" id="ctaClose" aria-label="Закрити" title="Закрити"><svg class="i" viewBox="0 0 20 20"><path d="M4 4l12 12M16 4L4 16"/></svg></button>
+    <h2 id="ctaTitle">Тут лише кілька карток із гри</h2>
+    <p>У коробці «Майстерні молодіжної роботи» — 122 картки інструментів, 40 карток ситуацій, 16 додаткових карток і правила базової гри та інших варіантів.</p>
+    <div class="price"><span class="pill">1190 грн</span><span class="note">Для організацій діють знижки від 10 примірників.</span></div>
+    <a class="btn fill buy" href="https://maisternia-youth-work.com.ua/buy" target="_blank" rel="noopener">Купити гру на сайті</a>
+  </div>
+</div>
+
+<script>
+(()=>{
+const CW=200, CH=283;
+const BUY='https://maisternia-youth-work.com.ua/buy';
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SP=RM?.35:1;
+const IC={
+  plus:'<svg class="i" viewBox="0 0 20 20"><path d="M10 3v14M3 10h14"/></svg>',
+  minus:'<svg class="i" viewBox="0 0 20 20"><path d="M3 10h14"/></svg>',
+  round:'<svg class="i" viewBox="0 0 20 20"><path d="M16 10a6 6 0 1 1-1.8-4.3"/><path d="M15 2.5v4h-4"/></svg>',
+  fs:'<svg class="i" viewBox="0 0 20 20"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>',
+  check:'<svg class="i" viewBox="0 0 20 20"><path d="M4 10.5l4 4 8-9"/></svg>',
+  skip:'<svg class="i" viewBox="0 0 20 20"><path d="M4 4l7 6-7 6M12 4v12"/></svg>'
+};
+
+/* ---------- demo set (Viktor will replace) ---------- */
+const TOOLS=[[1,'Мозковий штурм'],[3,'Вулична робота'],[6,'Делегувати молоді'],[7,'Нічого не робити'],[8,'Флешмоб'],[10,'Молодь як декорація'],
+[33,'Настільні ігри'],[34,'Кіноперегляд'],[36,'Пікнік'],[42,'Фестиваль'],[45,'Квест'],[65,'Фокус-група'],[66,'Анкетування'],[70,'Мапування у громаді'],
+[74,'Вуличне дослідження'],[85,'Бесіда'],[87,'Дебати'],[89,'Фасилітована сесія'],[92,'Менторство'],[101,'Публікація'],[116,'Вулична акція'],
+[117,'Тренінг'],[118,'Майстер-клас'],[119,'Лекція'],[120,'Форум-театр'],[131,'Рольова гра'],[133,'Світове кафе']];
+const SPECIAL=[[13,'Онлайн'],[18,'Комбінація'],[23,'Крінж-режим'],[26,'Факап-режим']];
+const SITS=[[4,'Ви організували захід для молоді, проте на нього прийшло лише 3 людини з очікуваних 25.'],[6,'«Наша молодь пасивна!» — сказали працівники місцевого молодіжного центру.'],
+[10,'Молодь втомилась від одноманітного навчання.'],[26,'Парк у громаді не є «дружнім до молоді».'],[31,'Кіновечори збирають все менше молоді.'],
+[40,'У вас з’явилась карткова гра про інструменти молодіжної роботи.'],[1,'Порожня картка для вашої ситуації']];
+const MODES=[{id:'stil',label:'Вільний стіл'},{id:'trening',label:'Для тренінгу'},{id:'basic',label:'Базова гра'},{id:'guess',label:'Вгадай слово'}];
+
+const $=s=>document.querySelector(s);
+const vp=$('#viewport'),world=$('#world');
+const store={get(k,d){try{const v=localStorage.getItem('mm3-'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('mm3-'+k,JSON.stringify(v))}catch(e){}}};
+const S={mode:'stil',orient:'land',W:1600,H:1000,n:store.get('n',6),hints:store.get('hints',true),
+  zoomRel:1,fit:1,panX:0,panY:0,Z:10,chosen:null,focus:null,hires:false,step:0,note:null};
+const jitter=a=>(Math.random()*2-1)*a;
+const esc=s=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const wait=ms=>new Promise(r=>setTimeout(r,ms*SP));
+
+/* ---------- cards ---------- */
+const cards=[];
+function mkCard(kind,n,name,special){
+  const el=document.createElement('div');el.className='card';el.hidden=true;el.tabIndex=0;
+  el.setAttribute('role','button');el.setAttribute('aria-label',(kind==='s'?'Ситуація: ':'Інструмент: ')+name);
+  el.innerHTML=`<div class="sh sh-soft"></div><div class="sh sh-contact"></div><div class="flip"><div class="face front"><img alt="" draggable="false" src="cards/${kind}${n}s.webp"><div class="custom"></div></div><div class="face back"><img alt="" draggable="false" src="cards/back-${kind}.webp"></div></div><div class="badge">✓ Обрано</div>`;
+  world.appendChild(el);
+  const c={id:cards.length,kind,n,name,special,blank:kind==='s'&&n===1,el,x:0,y:0,r:0,jr:0,face:1,base:1,lift:0,liftT:0,place:'deck',at:null,text:'',hx:0,hy:0,
+    flip:el.querySelector('.flip'),soft:el.querySelector('.sh-soft'),contact:el.querySelector('.sh-contact'),img:el.querySelector('.front img'),custom:el.querySelector('.custom')};
+  el._c=c;cards.push(c);return c;
+}
+TOOLS.forEach(([n,t])=>mkCard('t',n,t,false));
+SPECIAL.forEach(([n,t])=>mkCard('t',n,t,true));
+SITS.forEach(([n,t])=>mkCard('s',n,t,false));
+
+/* ---------- decks ---------- */
+function mkDeck(kind,label){
+  const el=document.createElement('div');el.className='deck';el.tabIndex=0;el.setAttribute('role','button');
+  el.innerHTML=`<div class="stack"><img alt="" src="cards/back-${kind}.webp"></div><div class="label">${label} <b></b></div>`;
+  world.appendChild(el);
+  return {kind,el,x:0,y:0,order:[],stack:el.querySelector('.stack'),count:el.querySelector('.label b'),labelEl:el.querySelector('.label'),label};
+}
+const decks={s:mkDeck('s','Ситуації'),t:mkDeck('t','Інструменти')};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+function resetDecks(){
+  const blank=cards.find(c=>c.blank).id;
+  const rest=shuffle(cards.filter(c=>c.kind==='s'&&!c.blank).map(c=>c.id));
+  rest.splice(rest.length-1,0,blank);decks.s.order=rest;           // the blank situation is the second one drawn
+  decks.t.order=shuffle(cards.filter(c=>c.kind==='t').map(c=>c.id));
+}
+resetDecks();
+const allowSpecial=c=>!c.special||S.mode==='stil';
+function available(d){return d.order.filter(id=>allowSpecial(cards[id]))}
+function drawFrom(d){
+  for(let i=d.order.length-1;i>=0;i--){const c=cards[d.order[i]];if(!allowSpecial(c))continue;
+    if(c.blank&&!S.sitDraws&&d.order.length>1)continue;   // never open a session with the blank situation
+    d.order.splice(i,1);if(c.kind==='s')S.sitDraws=(S.sitDraws||0)+1;return c}
+  return null;
+}
+function renderDeck(d){
+  const n=available(d).length;
+  d.el.classList.toggle('empty',n===0);
+  d.count.textContent='· '+n;
+  const L=Math.min(n,14),sh=[];
+  for(let i=1;i<=L;i++){const o=i*1.15;sh.push(`${o*.75}px ${o}px 0 ${i%2?'#C9DDB0':'#B7CB9C'}`)}
+  sh.push(`${L*.9+6}px ${L*1.15+10}px 18px rgba(14,24,6,.5)`,`${L*.9+2}px ${L*1.15+3}px 4px rgba(14,24,6,.35)`);
+  d.stack.style.boxShadow=n?sh.join(','):'none';
+  d.labelEl.style.top=(CH+L*1.15+(S.orient==='port'?24:20))+'px';d.labelEl.style.left=(L*.75/2)+'px';
+  d.el.setAttribute('aria-label',`Колода «${d.label}», карток: ${n}`);
+}
+
+/* ---------- box ---------- */
+const boxcam=document.createElement('div');boxcam.className='boxcam';
+const box=document.createElement('div');box.id='box';box.tabIndex=0;box.setAttribute('role','button');box.setAttribute('aria-label','Коробка гри — отримати всі картки');
+box.innerHTML=`<div class="bshadow"></div><div class="bshadow c"></div><div class="b3d"><div class="lid"><div class="f core"></div><div class="f top"></div><div class="f up"></div><div class="f down"></div><div class="f left"></div><div class="f right"></div></div></div>`;
+boxcam.appendChild(box);world.appendChild(boxcam);
+
+/* ---------- slots, labels, timer ---------- */
+const slotEls=[];
+for(let i=0;i<10;i++){const e=document.createElement('div');e.className='slot off';world.insertBefore(e,world.firstChild);slotEls.push(e)}
+const labelEls=[];
+function labels(list){ // list: [{x,y,html,cls}]
+  while(labelEls.length<list.length){const e=document.createElement('div');e.className='wlabel';world.insertBefore(e,world.firstChild);labelEls.push(e)}
+  labelEls.forEach((e,i)=>{const L=list[i];if(!L){e.hidden=true;return}e.hidden=false;e.innerHTML=L.html;e.className='wlabel '+(L.cls||'');e.style.width=(L.w||260)+'px';e.style.transform=`translate(${L.x-(L.w||260)/2}px,${L.y}px)`});
+}
+const timerEl=document.createElement('div');timerEl.className='wtimer';timerEl.hidden=true;
+timerEl.innerHTML='<svg viewBox="0 0 150 150"><circle class="bgc" cx="75" cy="75" r="64"/><circle class="fg" cx="75" cy="75" r="64" stroke-dasharray="402.1" stroke-dashoffset="0"/></svg><span>60</span>';
+world.appendChild(timerEl);
+
+/* ---------- layout ---------- */
+let LAY;
+function computeLayout(){
+  const L={},land=S.orient==='land',m=S.mode;
+  if(land){
+    S.W=1600;S.H=1000;
+    L.deckS=[150,160];L.deckT=[150,540];L.box=[1520,165,8];
+    L.center=[900,500];
+    L.ring=S.n===8?[[640,170],[900,170],[1160,170],[1420,500],[1160,830],[900,830],[640,830],[380,500]]
+                  :[[770,170],[1030,170],[1420,500],[1030,830],[770,830],[380,500]];
+    L.free=[[480,230],[710,230],[940,230],[1170,230],[600,560],[830,560],[1060,560],[1290,560],[480,850],[710,850],[940,850],[1170,850]];
+    L.area=[440,160,1420,860];
+    // basic game
+    L.sit=[900,250];L.seatY=[590,775,885];L.seatBase=.85;L.seatGap=230;L.seatCx=900;L.wonBase=.38;
+    L.hand=j=>[900+(j-2.5)*205,640+Math.pow(Math.abs(j-2.5),2)*7,(j-2.5)*2.4,1];
+    // word game
+    if(m==='guess'){L.deckT=[150,160];L.deckS=[-500,160];}
+    L.skip=[150,540];L.gcenter=[860,520];L.gbase=1.9;L.timer=[860,108];
+    L.team=(t,T)=>{const ys={2:[460,740],3:[380,600,820],4:[340,520,700,880]}[T];return [1400,ys[t],.5]};
+    // stretch the 1600×1000 design to the free screen area
+    const A=availAspect();
+    if(A>1.6){S.W=Math.round(1000*A)}else{S.H=Math.round(1600/A)}
+    const dx=(S.W-1600)/2,dy=(S.H-1000)/2,P=a=>[a[0]+dx,a[1]+dy,...a.slice(2)];
+    ['center','sit','gcenter','timer'].forEach(k=>L[k]=P(L[k]));
+    L.ring=L.ring.map(P);L.free=L.free.map(P);L.area=[L.area[0]+dx,L.area[1]+dy,L.area[2]+dx,L.area[3]+dy];
+    L.seatY=L.seatY.map(y=>y+dy);L.seatCx+=dx;
+    L.box=[S.W-50,165,8];
+    const h=L.hand,t=L.team;L.hand=j=>P(h(j));L.team=(i,T)=>{const q=t(i,T);return [S.W-200,q[1]+dy,q[2]]};
+  }else{
+    S.W=880;S.H=1650;
+    L.deckS=[140,1420];L.deckT=[420,1420];L.box=[805,1505,-8];
+    L.center=[500,640];
+    L.ring=S.n===8?[[220,230],[500,230],[780,230],[850,640],[780,1050],[500,1050],[220,1050],[150,640]]
+                  :[[360,230],[640,230],[850,640],[640,1050],[360,1050],[150,640]];
+    L.free=[[180,210],[500,210],[820,210],[180,530],[500,530],[820,530],[180,850],[500,850],[820,850],[340,1110],[660,1110]];
+    L.area=[120,150,880,1120];
+    L.sit=[500,260];L.seatY=[730,880,985];L.seatBase=.68;L.seatGap=0;L.seatCx=500;L.wonBase=.3;
+    L.hand=j=>[200+(j%3)*300,620+Math.floor(j/3)*290,jitter(0)+((j%3)-1)*2,.95];
+    if(m==='guess'){L.deckT=[140,1420];L.deckS=[140,2300];}
+    L.skip=[420,1420];L.gcenter=[500,660];L.gbase=2.25;L.timer=[500,200];
+    L.team=(t,T)=>{const xs={2:[330,670],3:[200,500,800],4:[140,380,620,860]}[T];return [xs[t],1130,.45]};
+    // squeeze the 1000-wide portrait design into 880: same layout, cards closer, the whole table fits ~12% larger
+    const X=x=>440+(x-500)*.86, P=a=>[X(a[0]),...a.slice(1)];
+    ['center','sit','gcenter','timer'].forEach(k=>L[k]=P(L[k]));
+    L.deckS=[110,1420];L.deckT=[340,1420];L.skip=[340,1420];if(m==='guess'){L.deckT=[110,1420];L.deckS=[110,2300]}
+    L.box=[815,1500,-8];
+    L.ring=L.ring.map(P);L.free=L.free.map(P);L.area=[X(L.area[0]),L.area[1],X(L.area[2]),L.area[3]];L.seatCx=440;
+    const h=L.hand,t=L.team;L.hand=j=>P(h(j));L.team=(i,T)=>P(t(i,T));
+  }
+  return L;
+}
+function availAspect(){
+  const i=insets(),aw=Math.max(300,innerWidth-i.l-i.r),ah=Math.max(300,innerHeight-i.t-i.b);return aw/ah;
+}
+function seatX(p,N){
+  if(S.orient==='land')return LAY.seatCx+(p-(N-1)/2)*LAY.seatGap;
+  return 440+((({3:[200,500,800],4:[140,380,620,860]}[N]||[500])[p])-500)*.86;
+}
+function place(el,x,y,extra=''){el.style.transform=`translate3d(${x-100}px,${y-141.5}px,0)${extra}`}
+function applyStatic(){
+  world.style.width=S.W+'px';world.style.height=S.H+'px';
+  world.classList.toggle('port',S.orient==='port');world.classList.toggle('game',S.mode==='basic'||S.mode==='guess');
+  world.style.perspectiveOrigin=`${S.W/2}px ${S.H/2}px`;
+  [['s',LAY.deckS],['t',LAY.deckT]].forEach(([k,p])=>{const d=decks[k];d.x=p[0];d.y=p[1];place(d.el,d.x,d.y);renderDeck(d)});
+  const b=LAY.box;box.style.transform=`translate3d(${b[0]-166.5}px,${b[1]-238}px,0) rotateZ(${b[2]}deg)`;
+  // look at the box from the front edge of the table, like a person sitting there
+  boxcam.style.perspectiveOrigin=`${b[0]-260}px ${b[1]+(S.orient==='port'?520:560)}px`;
+  // slot outlines
+  slotEls.forEach(e=>{e.classList.add('off');e.textContent=''});
+  if(S.mode==='trening'){
+    place(slotEls[0],LAY.center[0],LAY.center[1],' scale(1.2)');slotEls[0].textContent='Ситуація';slotEls[0].classList.toggle('off',!!slotCard('center'));
+    LAY.ring.forEach((p,i)=>{const e=slotEls[i+1];place(e,p[0],p[1]);e.classList.toggle('off',!!slotCard('ring:'+i))});
+  }else if(S.mode==='basic'&&G.players.length){
+    place(slotEls[0],LAY.sit[0],LAY.sit[1]);slotEls[0].textContent='Ситуація';slotEls[0].classList.toggle('off',!!slotCard('sit'));
+  }else if(S.mode==='guess'){
+    const e=slotEls[0];place(e,LAY.skip[0],LAY.skip[1]);e.textContent='Пропущені';e.classList.toggle('off',W.skip.length>0);
+    const e2=slotEls[1];place(e2,LAY.gcenter[0],LAY.gcenter[1],` scale(${LAY.gbase})`);e2.classList.toggle('off',!!slotCard('gcenter')||W.phase==='setup');
+  }
+  renderLabels();
+}
+function slotCard(key){return cards.find(c=>c.at===key&&c.place!=='deck')}
+const onTable=()=>cards.filter(c=>c.place==='table');
+
+/* ---------- positions per key ---------- */
+function posFor(c){
+  const a=c.at||'',k=a.split(':');
+  switch(k[0]){
+    case 'free':return {x:c.hx,y:c.hy,r:c.jr,base:1,face:0};
+    case 'center':return {x:LAY.center[0],y:LAY.center[1],r:c.jr,base:1.2,face:0};
+    case 'ring':{const p=LAY.ring[+k[1]];return p?{x:p[0],y:p[1],r:c.jr,base:1,face:0}:null}
+    case 'sit':return {x:LAY.sit[0],y:LAY.sit[1],r:c.jr,base:1,face:0};
+    case 'played':{const p=+k[1];return {x:seatX(p,G.players.length),y:LAY.seatY[0],r:c.jr,base:LAY.seatBase,face:G.revealed?0:1}}
+    case 'won':{const p=+k[1],i=+k[2];return {x:seatX(p,G.players.length)-30+i*22,y:LAY.seatY[2]+i*6,r:-6+i*5,base:LAY.wonBase,face:0}}
+    case 'hand':{const h=LAY.hand(+k[1]);return {x:h[0],y:h[1],r:h[2],base:h[3],face:0}}
+    case 'gcenter':return {x:LAY.gcenter[0],y:LAY.gcenter[1],r:c.jr,base:LAY.gbase,face:0};
+    case 'team':{const t=+k[1],i=+k[2],p=LAY.team(t,W.teams.length);return {x:p[0]+i*3,y:p[1]+i*4,r:c.jr,base:p[2],face:0}}
+    case 'skip':{const i=+k[1];return {x:LAY.skip[0]+i*3,y:LAY.skip[1]+i*4,r:c.jr,base:1,face:0}}
+  }
+  return null;
+}
+function relayout(o={}){
+  onTable().forEach(c=>{
+    if(drag&&drag.c===c)return;
+    const t=posFor(c);if(!t)return;
+    const isNew=o.fresh&&o.fresh.has(c);
+    if(!isNew&&!tweens.has(c)&&Math.abs(c.x-t.x)<.5&&Math.abs(c.y-t.y)<.5&&Math.abs(c.base-t.base)<.005&&Math.abs(c.face-t.face)<.01)return;
+    animate(c,t,{dur:isNew?700:560,delay:(o.delays&&o.delays.get(c))||0,arc:isNew?1:.35});
+  });
+}
+
+/* ---------- render & motion ---------- */
+function draw(c){
+  const l=Math.max(0,c.lift),s=c.base*(1+.065*l);
+  c.el.style.transform=`translate3d(${c.x-100}px,${c.y-141.5}px,0) rotate(${c.r}deg) scale(${s})`;
+  c.flip.style.transform=`rotateY(${c.face*180}deg)`;
+  c.soft.style.transform=`translate(${(5+20*l)/s}px,${(7+30*l)/s}px) scale(${1+.03*l})`;
+  c.soft.style.opacity=(.5-.12*l).toFixed(3);
+  c.contact.style.opacity=(.6*(1-Math.min(1,l*1.6))).toFixed(3);
+}
+const tweens=new Map();let raf=0,drag=null;
+const ease=t=>1-Math.pow(1-t,3.1);
+const back=t=>{const k=1.25;return 1+(k+1)*Math.pow(t-1,3)+k*Math.pow(t-1,2)};
+const smooth=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+function animate(c,to,o={}){
+  const from={x:c.x,y:c.y,r:c.r,face:c.face,base:c.base};
+  const tx=to.x??c.x,ty=to.y??c.y,dx=tx-c.x,dy=ty-c.y,dist=Math.hypot(dx,dy);
+  const bend=Math.min(70,dist*.09)*(Math.random()<.5?-1:1)*(o.arc??1);
+  tweens.set(c,{from,to:{x:tx,y:ty,r:to.r??c.r,face:to.face??c.face,base:to.base??c.base},
+    t0:performance.now()+(o.delay||0)*SP,dur:(o.dur||640)*SP,arc:RM?0:(o.arc??1),nx:dist?-dy/dist:0,ny:dist?dx/dist:0,bend,lf:o.liftFrom||0,done:o.done});
+  kick();
+}
+function kick(){if(!raf)raf=requestAnimationFrame(tick)}
+function tick(now){
+  raf=0;let busy=false;
+  tweens.forEach((tw,c)=>{
+    let t=(now-tw.t0)/tw.dur;
+    if(t<0){busy=true;return}
+    if(t>=1)t=1;
+    const e=ease(t),off=Math.sin(Math.PI*t)*tw.bend;
+    c.x=tw.from.x+(tw.to.x-tw.from.x)*e+tw.nx*off;
+    c.y=tw.from.y+(tw.to.y-tw.from.y)*e+tw.ny*off;
+    c.r=tw.from.r+(tw.to.r-tw.from.r)*back(t);
+    c.base=tw.from.base+(tw.to.base-tw.from.base)*e;
+    c.face=tw.from.face+(tw.to.face-tw.from.face)*smooth((t-.08)/.6);
+    c.lift=Math.max(tw.arc*Math.pow(Math.sin(Math.PI*t),.85),tw.lf*(1-e));
+    draw(c);
+    if(t>=1){tweens.delete(c);c.lift=0;c.liftT=0;draw(c);tw.done&&tw.done()}else busy=true;
+  });
+  cards.forEach(c=>{
+    if(tweens.has(c))return;
+    if(drag&&drag.c===c){busy=true;return}
+    if(Math.abs(c.lift-c.liftT)>.002){c.lift+=(c.liftT-c.lift)*.22;if(Math.abs(c.lift-c.liftT)<.003)c.lift=c.liftT;draw(c);busy=true}
+  });
+  if(busy)kick();
+}
+function front(c){c.el.style.zIndex=++S.Z}
+
+/* ---------- common card actions ---------- */
+function atDeck(c){const d=decks[c.kind];c.x=d.x;c.y=d.y;c.r=jitter(1.5);c.face=1;c.base=1;c.lift=0;draw(c);c.el.hidden=false;front(c);renderDeck(d)}
+function putOn(c,key,jr){c.place='table';c.at=key;c.jr=jr??jitter(3)}
+function collect(c,delay=0){
+  const d=decks[c.kind];
+  if(S.chosen===c)setChosen(null);
+  c.place='deck';c.at=null;c.el.classList.remove('ring');c.text&&c.blank&&(c.custom.textContent=c.text);
+  if(c.el.hidden){d.order.unshift(c.id);renderDeck(d);return}
+  front(c);
+  animate(c,{x:d.x,y:d.y,r:jitter(1.5),face:1,base:1},{dur:520,delay,arc:.8,done:()=>{c.el.hidden=true;d.order.unshift(c.id);renderDeck(d)}});
+}
+function collectAll(){
+  let i=0;cards.filter(c=>c.place!=='deck').forEach(c=>collect(c,(c.el.hidden?0:(i++)*40)));
+}
+/* fly a card to (x,y) small and hide it (into a player's hand) */
+function stash(c,x,y,delay=0){
+  front(c);animate(c,{x,y,base:.3,face:1,r:jitter(8)},{dur:480,delay,arc:.6,done:()=>{c.el.hidden=true}});
+}
+
+/* ================= FREE TABLE ================= */
+function freeSpot(){
+  const used=onTable();
+  for(const p of LAY.free){if(!used.some(c=>Math.hypot(c.hx-p[0],c.hy-p[1])<90))return [p[0]+jitter(14),p[1]+jitter(14)]}
+  const a=LAY.area;return [a[0]+Math.random()*(a[2]-a[0]),a[1]+Math.random()*(a[3]-a[1])];
+}
+function freeDraw(k){
+  const c=drawFrom(decks[k]);if(!c){note('Колода порожня. <b>«Зібрати картки»</b> поверне всі картки на місце.');return}
+  [c.hx,c.hy]=freeSpot();putOn(c,'free',jitter(4));atDeck(c);relayout({fresh:new Set([c])});
+  S.step=Math.max(S.step,1);if(c.blank)blankNote();else updateHint();
+}
+
+/* ================= TRAINING ================= */
+function newSituation(){
+  const old=slotCard('center');let delay=0;
+  if(old){collect(old);delay=220}
+  setTimeout(()=>{
+    const c=drawFrom(decks.s);if(!c)return;
+    putOn(c,'center',jitter(1.2));atDeck(c);relayout({fresh:new Set([c])});
+    applyStatic();S.step=Math.max(S.step,1);if(c.blank)blankNote();else updateHint();
+  },delay*SP);
+}
+function newTools(){
+  const olds=onTable().filter(c=>c.at&&c.at.startsWith('ring'));
+  olds.forEach((c,i)=>collect(c,i*40));
+  setTimeout(()=>{
+    const fresh=new Set(),delays=new Map();
+    for(let i=0;i<S.n;i++){const c=drawFrom(decks.t);if(!c)break;putOn(c,'ring:'+i,jitter(3));c.el.classList.add('ring');atDeck(c);fresh.add(c);delays.set(c,i*95)}
+    relayout({fresh,delays});applyStatic();
+    if(slotCard('center'))S.step=Math.max(S.step,2);updateHint();
+  },(olds.length?380:0)*SP);
+}
+function setChosen(c){
+  if(S.chosen)S.chosen.el.classList.remove('chosen');
+  S.chosen=c;if(c){c.el.classList.add('chosen');S.step=Math.max(S.step,3)}
+  world.classList.toggle('has-chosen',!!c);updateHint();
+}
+
+/* ================= BASIC GAME (one device, hot seat) ================= */
+const G={players:[],target:2,leader:0,phase:'setup',queue:[],cur:null,revealed:false,count:store.get('bcount',3),names:store.get('bnames',['','','',''])};
+function basicSetup(){
+  G.phase='setup';G.players=[];applyStatic();
+  const nameInputs=()=>Array.from({length:G.count},(_,i)=>`<input id="pn${i}" maxlength="16" aria-label="Ім’я гравця ${i+1}" placeholder="Гравець ${i+1}" value="${esc(G.names[i]||'')}">`).join('');
+  stage({title:'Базова гра',
+    html:`<p>Ведучий читає ситуацію. Інші гравці таємно обирають інструмент зі своїх карток, пояснюють вибір, а ведучий обирає найкращий. Грають з одного пристрою, передаючи його по колу.</p>
+      <div class="row"><span class="k">Гравців</span><div class="seg" id="bc">${[3,4].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${G.count===n}">${n}</button>`).join('')}</div></div>
+      <div class="names" id="names">${nameInputs()}</div>
+      <div class="row"><span class="k">Балів для перемоги</span><div class="seg" id="bt">${[2,3].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${G.target===n}">${n}</button>`).join('')}</div></div>
+      <p class="small">У демо — до 4 гравців і без додаткових карток. У повній грі — від 3 до 8 гравців.</p>`,
+    acts:[{label:'Почати гру',primary:true,fn:basicStart}],dim:true});
+  const sv=()=>{for(let i=0;i<G.count;i++){const el=$('#pn'+i);if(el)G.names[i]=el.value.trim()}};
+  $('#bc').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;sv();G.count=+b.dataset.v;store.set('bcount',G.count);basicSetup()};
+  $('#bt').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;G.target=+b.dataset.v;$('#bt').querySelectorAll('.btn').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+  $('#names').oninput=sv;
+  updateHint();
+}
+async function basicStart(){
+  for(let i=0;i<G.count;i++){const el=$('#pn'+i);if(el)G.names[i]=el.value.trim()}
+  store.set('bnames',G.names);
+  G.players=Array.from({length:G.count},(_,i)=>({name:G.names[i]||`Гравець ${i+1}`,hand:[],won:[]}));
+  G.leader=0;G.revealed=false;hideStage();
+  collectAll();await wait(650);resetDecks();applyStatic();
+  // deal six cards to every player: they fly to the player's seat and stay hidden
+  let d=0;
+  for(let r=0;r<6;r++)for(let p=0;p<G.players.length;p++){
+    const c=drawFrom(decks.t);c.place='hand';c.at=null;c.owner=p;G.players[p].hand.push(c);
+    atDeck(c);stash(c,seatX(p,G.players.length),LAY.seatY[1]+20,d);d+=45;
+  }
+  await wait(d+500);basicLead();
+}
+function basicLead(){
+  G.phase='lead';G.revealed=false;applyStatic();
+  const L=G.players[G.leader];
+  stage({title:`Ведучий — ${esc(L.name)}`,text:'Витягніть картку ситуації й прочитайте її вголос.',acts:[{label:'Витягнути ситуацію',primary:true,fn:basicDrawSit}],dock:true});
+  updateHint();
+}
+function basicDrawSit(){
+  const c=drawFrom(decks.s);if(!c){basicFinal();return}
+  hideStage();putOn(c,'sit',jitter(1.2));atDeck(c);relayout({fresh:new Set([c])});applyStatic();
+  G.phase='read';
+  G.queue=[];for(let i=1;i<G.players.length;i++)G.queue.push((G.leader+i)%G.players.length);
+  setTimeout(()=>{
+    stage({text:c.blank?`Порожня картка: ${esc(G.players[G.leader].name)} вигадує свою ситуацію. Натисніть на картку, щоб вписати її.`:'Прочитали ситуацію? Тепер гравці по черзі таємно обирають інструмент.',acts:[{label:'Далі',primary:true,fn:basicPass}],dock:true});
+    updateHint();
+  },700*SP);
+}
+function basicPass(){
+  if(!G.queue.length){basicRevealPrompt();return}
+  const p=G.queue[0];G.phase='pass';G.cur=p;renderLabels();
+  stage({title:`Хід: ${esc(G.players[p].name)}`,text:'Передайте пристрій. Інші гравці не дивляться на екран, поки ви обираєте.',acts:[{label:'Показати мої картки',primary:false,light:true,fn:()=>basicShowHand(p)}],curtain:true});
+  updateHint();
+}
+function basicShowHand(p){
+  hideStage();G.phase='choose';G.cur=p;
+  const P=G.players[p],fresh=new Set(),delays=new Map(),sx=seatX(p,G.players.length);
+  P.hand.forEach((c,j)=>{c.place='table';c.at='hand:'+j;c.x=sx;c.y=LAY.seatY[1];c.base=.3;c.face=1;c.r=0;draw(c);c.el.hidden=false;front(c);fresh.add(c);delays.set(c,j*70)});
+  relayout({fresh,delays});renderLabels();updateHint();
+}
+function basicPlay(c){
+  const p=G.cur,P=G.players[p];
+  P.hand=P.hand.filter(x=>x!==c);P.played=c;c.at='played:'+p;c.jr=jitter(3);
+  front(c);relayout();
+  const sx=seatX(p,G.players.length);
+  P.hand.forEach((h,i)=>{h.place='hand';h.at=null;stash(h,sx,LAY.seatY[1]+20,i*40)});
+  G.queue.shift();G.phase='passing';renderLabels();
+  setTimeout(basicPass,900*SP);
+}
+function basicRevealPrompt(){
+  G.phase='pass';G.cur=null;renderLabels();
+  stage({title:'Усі обрали!',text:'Покладіть пристрій так, щоб усі бачили екран.',acts:[{label:'Розкрити картки',light:true,fn:basicReveal}],curtain:true});
+  updateHint();
+}
+function basicReveal(){
+  hideStage();G.revealed=true;G.phase='judge';
+  const delays=new Map();let i=0;onTable().filter(c=>c.at&&c.at.startsWith('played')).forEach(c=>delays.set(c,(i++)*260));
+  relayout({delays});renderLabels();
+  setTimeout(()=>{stage({text:`По черзі поясніть свій вибір. <b>${esc(G.players[G.leader].name)}</b>, оберіть найкращий інструмент: натисніть на картку.`,dock:true});updateHint()},(i*260+500)*SP);
+}
+async function basicAward(p){
+  hideStage();
+  const sit=slotCard('sit'),P=G.players[p];
+  if(sit){sit.at=`won:${p}:${P.won.length}`;P.won.push(sit);front(sit)}
+  relayout();renderLabels();await wait(700);
+  G.players.forEach(pl=>{if(pl.played){collect(pl.played);pl.played=null}});
+  await wait(500);
+  // everyone except the leader draws back up to six
+  let d=0;G.players.forEach((pl,i)=>{
+    if(i===G.leader)return;
+    while(pl.hand.length<6){const c=drawFrom(decks.t);if(!c)break;c.place='hand';c.owner=i;pl.hand.push(c);atDeck(c);stash(c,seatX(i,G.players.length),LAY.seatY[1]+20,d);d+=80}
+  });
+  await wait(d+400);
+  if(P.won.length>=G.target||available(decks.s).length===0){basicFinal();return}
+  G.leader=(G.leader+1)%G.players.length;basicLead();
+}
+function basicFinal(){
+  G.phase='final';renderLabels();
+  const max=Math.max(...G.players.map(p=>p.won.length)),winners=G.players.filter(p=>p.won.length===max);
+  const title=winners.length===1?`${esc(winners[0].name)} — Майстер молодіжної роботи!`:'Нічия!';
+  const rows=[...G.players].sort((a,b)=>b.won.length-a.won.length).map(p=>`<div class="${p.won.length===max?'win':''}"><span>${esc(p.name)}</span><b>${p.won.length}</b></div>`).join('');
+  stage({title,html:`<div class="score">${rows}</div><p class="small">У повній грі — 122 інструменти й 40 ситуацій, а гравців може бути до 8.</p>`,
+    acts:[{label:'Зіграти ще',fn:basicSetup},{label:'Купити гру',primary:true,href:BUY}],dim:true});
+  updateHint();
+}
+
+/* ================= WORD GAME ================= */
+const W={teams:[],tcount:store.get('wteams',2),time:store.get('wtime',60),turn:0,phase:'setup',skip:[],end:0,timer:0};
+function guessSetup(){
+  W.phase='setup';W.teams=[];W.skip=[];applyStatic();timerEl.hidden=true;
+  stage({title:'Вгадай слово',
+    html:`<p>Команди по черзі пояснюють інструменти, не називаючи однокореневих слів і синонімів. Не знаєте, як пояснити, — пропустіть. Перемагає команда, яка вгадала більше.</p>
+      <div class="row"><span class="k">Команд</span><div class="seg" id="wt">${[2,3,4].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${W.tcount===n}">${n}</button>`).join('')}</div></div>
+      <div class="row"><span class="k">Час на хід</span><div class="seg" id="wm">${[30,60,90].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${W.time===n}">${n} с</button>`).join('')}</div></div>`,
+    acts:[{label:'Почати гру',primary:true,fn:guessStart}],dim:true});
+  const seg=(id,key,sk)=>$(id).onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;W[key]=+b.dataset.v;store.set(sk,W[key]);$(id).querySelectorAll('.btn').forEach(x=>x.setAttribute('aria-pressed',x===b))};
+  seg('#wt','tcount','wteams');seg('#wm','time','wtime');
+  renderBar();updateHint();
+}
+async function guessStart(){
+  hideStage();collectAll();await wait(600);resetDecks();
+  W.teams=Array.from({length:W.tcount},(_,i)=>({name:`Команда ${i+1}`,pile:[]}));W.skip=[];W.turn=0;
+  applyStatic();guessIntro();
+}
+function guessIntro(){
+  W.phase='intro';renderBar();renderLabels();
+  const T=W.teams[W.turn];
+  stage({title:`Пояснює ${T.name.toLowerCase()}`,text:`Пояснювач тримає пристрій так, щоб команда не бачила екран. На хід — ${W.time} секунд.`,acts:[{label:'Старт',primary:true,fn:guessGo}],dim:true});
+  updateHint();
+}
+function guessGo(){
+  hideStage();W.phase='turn';W.end=performance.now()+W.time*1000;
+  const p=LAY.timer;timerEl.style.transform=`translate(${p[0]-75}px,${p[1]-75}px)`;timerEl.hidden=false;
+  renderBar();updateHint();guessNext();tickTimer();
+}
+function tickTimer(){
+  cancelAnimationFrame(W.timer);
+  const loop=()=>{
+    if(W.phase!=='turn')return;
+    const left=Math.max(0,W.end-performance.now()),s=Math.ceil(left/1000);
+    timerEl.querySelector('span').textContent=s;
+    timerEl.querySelector('.fg').style.strokeDashoffset=(402.1*(1-left/(W.time*1000))).toFixed(1);
+    timerEl.classList.toggle('low',s<=10);
+    if(left<=0){guessEnd();return}
+    W.timer=requestAnimationFrame(loop);
+  };loop();
+}
+function guessNext(){
+  const c=drawFrom(decks.t);
+  if(!c){guessEnd(true);return}
+  putOn(c,'gcenter',jitter(2));atDeck(c);relayout({fresh:new Set([c])});applyStatic();
+}
+function guessMark(ok){
+  const c=slotCard('gcenter');if(!c||W.phase!=='turn')return;
+  if(ok){const T=W.teams[W.turn];c.at=`team:${W.turn}:${T.pile.length}`;T.pile.push(c)}
+  else{c.at='skip:'+W.skip.length;W.skip.push(c)}
+  c.jr=jitter(4);front(c);relayout();applyStatic();
+  setTimeout(guessNext,180*SP);
+}
+function guessEnd(deckEmpty){
+  if(W.phase!=='turn')return;
+  W.phase='summary';cancelAnimationFrame(W.timer);
+  const cur=slotCard('gcenter');if(cur){collect(cur)}
+  timerEl.hidden=true;renderBar();renderLabels();applyStatic();
+  const T=W.teams[W.turn];
+  const out=available(decks.t).length+(cur?1:0)===0||deckEmpty;
+  setTimeout(()=>{
+    if(out||available(decks.t).length===0){guessFinal();return}
+    const next=(W.turn+1)%W.teams.length;
+    stage({title:'Час вийшов!',html:`<p>${T.name} вгадала: <b>${T.pile.length}</b>.</p>${scoreRows()}`,acts:[{label:`Пояснює ${W.teams[next].name.toLowerCase()}`,primary:true,fn:()=>{W.turn=next;guessIntro()}}],dim:true});
+    updateHint();
+  },600*SP);
+}
+function scoreRows(){
+  const max=Math.max(...W.teams.map(t=>t.pile.length));
+  return `<div class="score">${W.teams.map(t=>`<div class="${t.pile.length===max&&max>0?'win':''}"><span>${t.name}</span><b>${t.pile.length}</b></div>`).join('')}</div>`;
+}
+function guessFinal(){
+  W.phase='final';renderBar();
+  const max=Math.max(...W.teams.map(t=>t.pile.length)),win=W.teams.filter(t=>t.pile.length===max);
+  stage({title:win.length===1?`Перемогла ${win[0].name.toLowerCase()}!`:'Нічия!',html:`<p>Інструменти в колоді закінчились.</p>${scoreRows()}<p class="small">У повній грі — 122 інструменти, тож слів вистачить на довгий вечір.</p>`,
+    acts:[{label:'Зіграти ще',fn:guessSetup},{label:'Купити гру',primary:true,href:BUY}],dim:true});
+  updateHint();
+}
+
+/* ---------- world labels per mode ---------- */
+function renderLabels(){
+  const L=[];
+  if(S.mode==='basic'&&G.players.length){
+    const N=G.players.length;
+    G.players.forEach((p,i)=>{
+      const tag=i===G.leader?'<br><span class="tag">Ведучий</span>':'';
+      const pts=p.won.length?` <b>· ${p.won.length}</b>`:'';
+      L.push({x:seatX(i,N),y:LAY.seatY[1]-(S.orient==='port'?18:12),html:`${esc(p.name)}${pts}${tag}`,w:S.orient==='port'?300:220,cls:(G.cur===i&&(G.phase==='choose'||G.phase==='pass'))?'on':''});
+    });
+  }
+  if(S.mode==='guess'&&W.teams.length){
+    W.teams.forEach((t,i)=>{const p=LAY.team(i,W.teams.length);const h=CH*p[2];
+      L.push({x:p[0],y:p[1]-h/2-(S.orient==='port'?48:30),html:`${t.name} <b>· ${t.pile.length}</b>`,w:S.orient==='port'?300:240,cls:(W.turn===i&&W.phase!=='final')?'on':'dim'})});
+  }
+  labels(L);
+}
+
+/* ---------- camera: fit / zoom / pan ---------- */
+function insets(){
+  const vw=innerWidth,vh=innerHeight,narrow=vw<=760;
+  const t=$('#top').getBoundingClientRect(),b=$('#bar').getBoundingClientRect(),h=$('#helpBtn').getBoundingClientRect();
+  const bottom=Math.max(vh-b.top,vh-h.top+6);
+  return {l:narrow?8:30,r:narrow?8:30,t:t.bottom+(narrow?8:14),b:bottom+(narrow?8:14)};
+}
+function fit(anim){
+  const vw=innerWidth,vh=innerHeight,i=insets();
+  const aw=Math.max(100,vw-i.l-i.r),ah=Math.max(100,vh-i.t-i.b);
+  S.fit=Math.min(aw/S.W,ah/S.H);S.zoomRel=1;
+  S.panX=i.l+(aw-S.W*S.fit)/2;S.panY=i.t+(ah-S.H*S.fit)/2;
+  applyView(anim);
+}
+function applyView(anim){
+  const z=S.fit*S.zoomRel;
+  world.style.transition=anim&&!RM?'transform .45s cubic-bezier(.3,.7,.2,1)':'none';
+  world.style.transform=`translate(${S.panX}px,${S.panY}px) scale(${z})`;
+  vp.style.backgroundSize=`${384*S.zoomRel}px`;vp.style.backgroundPosition=`${S.panX}px ${S.panY}px`;
+  const p=$('#zpct');if(p)p.textContent=Math.round(S.zoomRel*100)+'%';
+  const big=S.mode==='guess'?(LAY?LAY.gbase:1.9):1.2;
+  if(!S.hires&&CW*z*big*(devicePixelRatio||1)>430){S.hires=true;cards.forEach(c=>c.img.src=`cards/${c.kind}${c.n}l.webp`)}
+}
+function zoomAt(rel,cx,cy,anim){
+  rel=Math.min(3,Math.max(.5,rel));
+  const z0=S.fit*S.zoomRel,z1=S.fit*rel,wx=(cx-S.panX)/z0,wy=(cy-S.panY)/z0;
+  S.zoomRel=rel;S.panX=cx-wx*z1;S.panY=cy-wy*z1;clampPan();applyView(anim);
+}
+function clampPan(){
+  const z=S.fit*S.zoomRel,vw=innerWidth,vh=innerHeight,m=140;
+  S.panX=Math.min(vw-m,Math.max(m-S.W*z,S.panX));S.panY=Math.min(vh-m,Math.max(m-S.H*z,S.panY));
+}
+const toWorld=(cx,cy)=>{const z=S.fit*S.zoomRel;return [(cx-S.panX)/z,(cy-S.panY)/z]};
+vp.addEventListener('wheel',e=>{
+  e.preventDefault();
+  if(e.ctrlKey||e.metaKey)zoomAt(S.zoomRel*Math.exp(-e.deltaY*.01),e.clientX,e.clientY,false);
+  else{S.panX-=e.deltaX;S.panY-=e.deltaY;clampPan();applyView(false)}
+},{passive:false});
+vp.addEventListener('dblclick',e=>{if(!e.target.closest('.card,.deck,#box'))fit(true)});
+function toggleFs(){try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}}
+const canFs=!!(document.fullscreenEnabled&&document.documentElement.requestFullscreen);
+
+/* ---------- pointer ---------- */
+const ptrs=new Map();let gest=null;
+const canDrag=()=>S.mode==='stil'||S.mode==='trening';
+vp.addEventListener('pointerdown',e=>{
+  closeMenu();
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  try{vp.setPointerCapture(e.pointerId)}catch(_){}
+  if(ptrs.size===2){
+    if(drag){drag.c.liftT=0;drag=null;kick()}
+    const [a,b]=[...ptrs.values()];gest={type:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y),rel0:S.zoomRel};return;
+  }
+  const cardEl=e.target.closest('.card'),deckEl=e.target.closest('.deck'),boxEl=e.target.closest('#box');
+  if(cardEl){
+    const c=cardEl._c;
+    gest={type:'card',c,sx:e.clientX,sy:e.clientY,moved:false};
+    if(canDrag()){tweens.delete(c);const [wx,wy]=toWorld(e.clientX,e.clientY);front(c);c.liftT=1;drag={c,ox:wx-c.x,oy:wy-c.y,lastX:e.clientX,vx:0,r0:c.r,t:performance.now()};kick()}
+  }else if(deckEl)gest={type:'deck',k:deckEl===decks.s.el?'s':'t',sx:e.clientX,sy:e.clientY};
+  else if(boxEl)gest={type:'box',sx:e.clientX,sy:e.clientY};
+  else{gest={type:'pan',sx:e.clientX,sy:e.clientY,px:S.panX,py:S.panY};vp.classList.add('panning')}
+});
+vp.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;
+  ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(!gest)return;
+  if(gest.type==='pinch'&&ptrs.size===2){const [a,b]=[...ptrs.values()];zoomAt(gest.rel0*Math.hypot(a.x-b.x,a.y-b.y)/gest.d0,(a.x+b.x)/2,(a.y+b.y)/2,false);return}
+  if(gest.type==='pan'){S.panX=gest.px+e.clientX-gest.sx;S.panY=gest.py+e.clientY-gest.sy;clampPan();applyView(false);return}
+  if(gest.type==='card'){
+    if(!gest.moved&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>6)gest.moved=true;
+    if(!gest.moved||!drag)return;
+    const [wx,wy]=toWorld(e.clientX,e.clientY),c=drag.c,now=performance.now(),dt=Math.max(8,now-drag.t);
+    drag.vx=drag.vx*.7+((e.clientX-drag.lastX)/dt)*.3;drag.lastX=e.clientX;drag.t=now;
+    c.x=wx-drag.ox;c.y=wy-drag.oy;
+    c.r+=((drag.r0+Math.max(-9,Math.min(9,drag.vx*7)))-c.r)*.35;
+    c.lift+=(1-c.lift)*.3;draw(c);
+  }
+});
+function endPtr(e){
+  if(!ptrs.has(e.pointerId))return;
+  ptrs.delete(e.pointerId);
+  if(!gest)return;
+  const g=gest;
+  if(g.type==='pinch'){if(ptrs.size===0)gest=null;return}
+  gest=null;vp.classList.remove('panning');
+  const tap=Math.hypot(e.clientX-g.sx,e.clientY-g.sy)<8;
+  if(g.type==='card'){
+    const c=g.c;
+    if(drag){const r0=drag.r0;drag=null;c.liftT=0;
+      if(g.moved){const rr=r0+(c.r-r0)*.25;animate(c,{r:rr},{dur:320,arc:0,liftFrom:c.lift});if(c.at==='free'){c.hx=c.x;c.hy=c.y}c.jr=rr;kick();return}
+      c.lift=0;draw(c);
+    }
+    if(!g.moved&&e.type!=='pointercancel')openFocus(c);
+    kick();
+  }else if(g.type==='deck'&&tap)tapDeck(g.k);
+  else if(g.type==='box'&&tap)openBox();
+}
+vp.addEventListener('pointerup',endPtr);vp.addEventListener('pointercancel',endPtr);
+function tapDeck(k){
+  if(S.mode==='stil')freeDraw(k);
+  else if(S.mode==='trening'){if(k==='s')newSituation();else newTools()}
+  else if(S.mode==='basic'&&k==='s'&&G.phase==='lead')basicDrawSit();
+}
+vp.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  const t=e.target;
+  if(t.classList.contains('card')){e.preventDefault();openFocus(t._c)}
+  else if(t.classList.contains('deck')){e.preventDefault();tapDeck(t===decks.s.el?'s':'t')}
+  else if(t.id==='box'){e.preventDefault();openBox()}
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){if(!$('#focus').hidden)closeFocus();else if(!$('#cta').hidden)closeBox();else closeMenu()}
+  if(/TEXTAREA|INPUT/.test(e.target.tagName)||!$('#focus').hidden)return;
+  if(e.key==='+'||e.key==='=')zoomAt(S.zoomRel*1.25,innerWidth/2,innerHeight/2,true);
+  if(e.key==='-')zoomAt(S.zoomRel/1.25,innerWidth/2,innerHeight/2,true);
+  if(e.key==='0')fit(true);
+});
+
+/* ---------- focus view ---------- */
+const F=$('#focus'),big=$('#big'),bigImg=$('#bigImg'),bigCustom=$('#bigCustom'),fpanel=$('#fpanel');
+function focusActions(c){
+  const a=c.at||'';
+  if(S.mode==='trening'&&a.startsWith('ring'))return [{label:S.chosen===c?'Зняти позначку':'Обрати цей інструмент',fn:()=>setChosen(S.chosen===c?null:c)}];
+  if(S.mode==='basic'&&G.phase==='choose'&&a.startsWith('hand'))return [{label:'Покласти цю картку',fn:()=>basicPlay(c)}];
+  if(S.mode==='basic'&&G.phase==='judge'&&a.startsWith('played'))return [{label:'Найкращий інструмент',fn:()=>basicAward(+a.split(':')[1])}];
+  return [];
+}
+function openFocus(c){
+  if(c.face>.5)return;
+  S.focus=c;
+  const acts=focusActions(c);
+  const panelH=(c.blank?170:0)+(acts.length?72:0);
+  const bw=Math.min(innerWidth*.84,(innerHeight-panelH-150)*63/89,560);
+  big.style.setProperty('--bw',bw+'px');
+  bigImg.src=`cards/${c.kind}${c.n}l.webp`;bigImg.alt=c.name;bigCustom.textContent=c.text;
+  fpanel.innerHTML='';
+  if(c.blank){
+    fpanel.insertAdjacentHTML('beforeend',`<label for="sitText">Ваша ситуація</label><textarea id="sitText" maxlength="160" placeholder="Опишіть ситуацію з вашої роботи"></textarea>`);
+    const ta=fpanel.querySelector('textarea');ta.value=c.text;
+    ta.addEventListener('input',()=>{c.text=ta.value;bigCustom.textContent=c.text;c.custom.textContent=c.text});
+  }
+  acts.forEach(a=>{const b=document.createElement('button');b.className='ibtn fill';b.textContent=a.label;b.onclick=()=>{closeFocus();setTimeout(a.fn,360*SP)};fpanel.appendChild(b)});
+  F.hidden=false;
+  const r=c.el.querySelector('.front').getBoundingClientRect(),br=big.getBoundingClientRect();
+  const z=S.fit*S.zoomRel,k=CW*c.base*z/br.width;
+  const dx=(r.left+r.width/2)-(br.left+br.width/2),dy=(r.top+r.height/2)-(br.top+br.height/2);
+  c.el.style.visibility='hidden';
+  big.animate([{transform:`translate(${dx}px,${dy}px) rotate(${c.r}deg) scale(${k})`},{transform:'none'}],{duration:420*SP,easing:'cubic-bezier(.2,.8,.2,1)'});
+  F.querySelector('.bg').animate([{opacity:0},{opacity:1}],{duration:300*SP});
+  [fpanel,$('#fclose')].forEach(el=>el.animate([{opacity:0},{opacity:1}],{duration:260*SP,delay:140*SP,fill:'backwards'}));
+  (fpanel.querySelector('textarea')||fpanel.querySelector('.ibtn')||$('#fclose')).focus({preventScroll:true});
+}
+function closeFocus(){
+  const c=S.focus;if(!c){F.hidden=true;return}
+  const fr=c.el.querySelector('.front'),br=big.getBoundingClientRect();
+  c.el.style.visibility='';const rr=fr.getBoundingClientRect();c.el.style.visibility='hidden';
+  const z=S.fit*S.zoomRel,k=CW*c.base*z/br.width;
+  const dx=(rr.left+rr.width/2)-(br.left+br.width/2),dy=(rr.top+rr.height/2)-(br.top+br.height/2);
+  const a=big.animate([{transform:'none'},{transform:`translate(${dx}px,${dy}px) rotate(${c.r}deg) scale(${k})`}],{duration:340*SP,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'});
+  F.querySelector('.bg').animate([{opacity:1},{opacity:0}],{duration:300*SP,fill:'forwards'});
+  [fpanel,$('#fclose')].forEach(el=>el.animate([{opacity:1},{opacity:0}],{duration:150*SP,fill:'forwards'}));
+  a.onfinish=()=>{F.hidden=true;c.el.style.visibility='';F.getAnimations({subtree:true}).forEach(x=>x.cancel())};
+  S.focus=null;
+}
+F.querySelector('.bg').addEventListener('click',closeFocus);
+$('#fclose').onclick=closeFocus;
+
+/* ---------- stage (game prompts) ---------- */
+const ST=$('#stage');
+function stage(o){
+  ST.className=o.curtain?'curtain':o.dock?'dock':o.dim?'dim':'';
+  const acts=(o.acts||[]).map((a,i)=>a.href?`<a class="btn big${a.primary?' fill':''}" href="${a.href}" target="_blank" rel="noopener">${a.label}</a>`
+    :`<button class="${a.light?'ibtn fill':'btn'} big${a.primary?' fill':''}" data-i="${i}">${a.label}</button>`).join('');
+  if(o.dock) ST.innerHTML=`<div class="tile"><div class="txt">${o.title?`<h2>${o.title}</h2>`:''}<p>${o.text||''}</p></div>${acts?`<div class="acts" style="margin:0">${acts}</div>`:''}</div>`;
+  else ST.innerHTML=`<div class="tile" role="dialog" aria-label="${(o.title||'').replace(/<[^>]+>/g,'')}">${o.title?`<h2>${o.title}</h2>`:''}${o.text?`<p>${o.text}</p>`:''}${o.html||''}${acts?`<div class="acts">${acts}</div>`:''}</div>`;
+  ST.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>o.acts[+b.dataset.i].fn());
+  ST.hidden=false;document.body.classList.add('has-stage');
+  const f=ST.querySelector('.btn.fill,.ibtn.fill');if(f&&!o.dock)f.focus({preventScroll:true});
+}
+function hideStage(){ST.hidden=true;ST.innerHTML='';document.body.classList.remove('has-stage')}
+
+/* ---------- box ---------- */
+function bumpBox(){box.classList.remove('bump');void box.offsetWidth;box.classList.add('bump')}
+box.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')bumpBox()});
+box.addEventListener('animationend',()=>box.classList.remove('bump'));
+function openBox(){bumpBox();S.boxSeen=true;setTimeout(()=>{$('#cta').hidden=false;$('#cta .buy').focus({preventScroll:true})},460*SP)}
+function closeBox(){$('#cta').hidden=true;box.focus({preventScroll:true})}
+$('#ctaClose').onclick=closeBox;$('#cta .bg').onclick=closeBox;
+setTimeout(()=>{if(!S.boxSeen)bumpBox()},6000);
+setTimeout(()=>{if(!S.boxSeen)bumpBox()},22000);
+
+/* ---------- hint ---------- */
+function hintText(){
+  const m=S.mode;
+  if(m==='stil')return S.step?'Перетягуйте картки й сам стіл. <b>Натисніть на картку</b>, щоб прочитати її.':'Це демо «Майстерні». <b>Натисніть на колоду</b>, щоб витягнути картку.';
+  if(m==='trening')return ['<b>Натисніть на колоду ситуацій</b> — ситуація ляже в центр.',`Тепер <b>натисніть на колоду інструментів</b> — довкола ляже ${S.n} карток.`,
+    'Який інструмент найкращий для ситуації? Голосуйте в Zoom, а переможця позначте: <b>натисніть на картку</b>.','<b>↻</b> на панелі — новий раунд: нова ситуація й нові інструменти.'][Math.min(S.step,3)];
+  if(m==='basic')return ({setup:'',lead:'Ведучий витягує ситуацію: кнопкою або <b>натисканням на колоду</b>.',read:'Ведучий читає ситуацію вголос.',
+    pass:'Поки хтось обирає картку, інші не дивляться на екран.',passing:'Поки хтось обирає картку, інші не дивляться на екран.',choose:'<b>Натисніть на картку</b>, щоб прочитати її, і покладіть ту, що найкраще вирішує ситуацію.',
+    judge:'Кожен пояснює свій вибір. Ведучий <b>натискає на найкращий інструмент</b>.',final:'Хочете більше? У повній грі — 122 інструменти й 40 ситуацій.'})[G.phase]||'';
+  if(m==='guess')return ({setup:'',intro:'Команда пояснювача не бачить екран.',turn:'Пояснюйте словами, без однокореневих слів. <b>Вгадали</b> чи <b>Пропустити</b> — кнопки внизу.',
+    summary:'Передайте пристрій наступній команді.',final:'У повній грі — 122 інструменти.'})[W.phase]||'';
+  return '';
+}
+function updateHint(){
+  const ht=S.note||hintText();$('#hint').innerHTML=ht;S.note=null;$('#hint').hidden=!ht;
+  $('#help').classList.toggle('closed',!S.hints);
+  $('#helpBtn').setAttribute('aria-pressed',S.hints);
+  const pulseOk=S.hints;
+  decks.s.el.classList.toggle('pulse',pulseOk&&((S.mode!=='basic'&&S.mode!=='guess'&&S.step===0)||(S.mode==='basic'&&G.phase==='lead')));
+  decks.t.el.classList.toggle('pulse',pulseOk&&S.mode==='trening'&&S.step===1);
+}
+function note(html){S.note=html;S.hints=true;updateHint()}
+function blankNote(){updateHint()}
+$('#helpBtn').onclick=()=>{S.hints=!S.hints;store.set('hints',S.hints);updateHint()};
+
+/* ---------- toolbar ---------- */
+function renderBar(){
+  const a=$('#bar');let h='<div class="grp">';
+  if(S.mode==='trening'){
+    h+=`<span class="lab">Інструментів</span><div class="seg" role="group" aria-label="Кількість інструментів"><button class="cbtn" data-n="6" aria-pressed="${S.n===6}">6</button><button class="cbtn" data-n="8" aria-pressed="${S.n===8}">8</button></div>
+        <button class="cbtn dark icon" id="round" aria-label="Новий раунд" title="Новий раунд">${IC.round}</button>`;
+  }else if(S.mode==='stil')h+=`<button class="cbtn" id="gather">Зібрати картки</button>`;
+  else if(S.mode==='guess'&&W.phase==='turn')h+=`<button class="cbtn" id="wskip">${IC.skip}Пропустити</button><button class="cbtn dark" id="wok">${IC.check}Вгадали</button>`;
+  else h+=`<button class="cbtn" id="restart">Нова гра</button>`;
+  h+=`</div><div class="grp zg tile" role="group" aria-label="Масштаб столу"><button class="btn plain icon" id="zout" aria-label="Зменшити" title="Зменшити">${IC.minus}</button><button class="btn plain" id="zpct" aria-label="Показати весь стіл" title="Показати весь стіл">${Math.round(S.zoomRel*100)}%</button><button class="btn plain icon" id="zin" aria-label="Збільшити" title="Збільшити">${IC.plus}</button>${canFs?`<button class="btn plain icon" id="zfs" aria-label="На весь екран" title="На весь екран">${IC.fs}</button>`:''}</div>`;
+  a.innerHTML=h;
+  a.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{
+    const n=+b.dataset.n;if(n===S.n)return;S.n=n;store.set('n',n);LAY=computeLayout();applyStatic();renderBar();
+    if(onTable().some(c=>c.at&&c.at.startsWith('ring')))newTools();updateHint();
+  });
+  const on=(id,fn)=>{const el=$(id);if(el)el.onclick=fn};
+  on('#round',()=>{setChosen(null);newSituation();newTools();S.step=Math.max(S.step,2);setTimeout(updateHint,50)});
+  on('#gather',()=>{collectAll();S.step=0;updateHint()});
+  on('#restart',()=>{if(S.mode==='basic')basicSetup();else guessSetup()});
+  on('#wok',()=>guessMark(true));on('#wskip',()=>guessMark(false));
+  on('#zin',()=>zoomAt(S.zoomRel*1.25,innerWidth/2,innerHeight/2,true));
+  on('#zout',()=>zoomAt(S.zoomRel/1.25,innerWidth/2,innerHeight/2,true));
+  on('#zpct',()=>fit(true));on('#zfs',toggleFs);
+}
+
+/* ---------- modes & menu ---------- */
+function renderModes(){
+  $('#modes').innerHTML=MODES.map(m=>`<button class="mbtn" data-mode="${m.id}" aria-pressed="${m.id===S.mode}">${m.label}</button>`).join('');
+  $('#modeMenu').innerHTML=MODES.map(m=>`<button class="mitem" data-mode="${m.id}" aria-current="${m.id===S.mode}">${m.label}</button>`).join('');
+  $('#modeBtnLabel').textContent=MODES.find(m=>m.id===S.mode).label;
+  document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{closeMenu();setMode(b.dataset.mode)});
+}
+function closeMenu(){$('#modeMenu').hidden=true;$('#modeBtn').setAttribute('aria-expanded','false')}
+$('#modeBtn').onclick=e=>{e.stopPropagation();const open=$('#modeMenu').hidden;$('#modeMenu').hidden=!open;$('#modeBtn').setAttribute('aria-expanded',open)};
+document.addEventListener('click',e=>{if(!e.target.closest('#modeDrop'))closeMenu()});
+
+function setMode(m,initial){
+  if(!MODES.some(x=>x.id===m))m='stil';
+  const changed=m!==S.mode;
+  if(changed&&!initial){collectAll();setChosen(null);cancelAnimationFrame(W.timer);timerEl.hidden=true}
+  S.mode=m;hideStage();
+  if(m!=='basic'){G.players=[];G.phase='setup'}
+  if(m!=='guess'){W.teams=[];W.skip=[];W.phase='setup'}
+  S.step=0;S.sitDraws=0;LAY=computeLayout();applyStatic();renderModes();renderBar();updateHint();
+  LAY=computeLayout();applyStatic();   // again, now that the toolbar has its real size
+  if(location.hash.slice(1)!==m){try{history.replaceState(null,'','#'+m)}catch(e){location.hash=m}}
+  requestAnimationFrame(()=>fit(!initial));
+  if(m==='basic')setTimeout(basicSetup,initial?50:500*SP);
+  if(m==='guess')setTimeout(guessSetup,initial?50:500*SP);
+}
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(h!==S.mode)setMode(h)});
+
+/* ---------- orientation / resize ---------- */
+function orientFor(){return innerWidth/innerHeight<.95?'port':'land'}
+let rt;
+addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{
+  const o=orientFor(),oW=S.W,oH=S.H,oo=S.orient;
+  S.orient=o;const oa=LAY.area;LAY=computeLayout();
+  if(o!==oo||S.W!==oW||S.H!==oH){
+    const a=LAY.area;
+    cards.forEach(c=>{if(c.at==='free'){c.hx=a[0]+(c.hx-oa[0])/(oa[2]-oa[0])*(a[2]-a[0]);c.hy=a[1]+(c.hy-oa[1])/(oa[3]-oa[1])*(a[3]-a[1])}});
+    applyStatic();
+    cards.forEach(c=>{if(c.place==='deck'){const d=decks[c.kind];c.x=d.x;c.y=d.y;draw(c)}});
+    if(!timerEl.hidden){const p=LAY.timer;timerEl.style.transform=`translate(${p[0]-75}px,${p[1]-75}px)`}
+    relayout();
+  }
+  fit(false);
+},120)});
+
+/* ---------- embedded on a phone: open full screen instead ---------- */
+// only the site embed asks for this (iframe src ends with ?embed); other frames, like a preview, show the table
+const embedded=/[?&]embed\b/.test(location.search);
+if(embedded&&innerWidth<700){
+  const d=document.createElement('div');d.id='embedPoster';
+  d.innerHTML=`<div class="tile"><h2>Спробуйте «Майстерню» онлайн</h2><p>Витягуйте картки, грайте базову гру чи «Вгадай слово» просто з телефона.</p><a class="btn fill big" href="${location.href.split('#')[0]}" target="_blank" rel="noopener">Відкрити гру</a></div>`;
+  document.body.appendChild(d);
+}
+
+/* ---------- start ---------- */
+S.orient=orientFor();
+const startMode=MODES.some(m=>m.id===location.hash.slice(1))?location.hash.slice(1):'stil';
+S.mode=startMode;LAY=computeLayout();setMode(startMode,true);
+cards.forEach(c=>{const d=decks[c.kind];c.x=d.x;c.y=d.y;draw(c)});
+if(startMode==='stil'){
+  setTimeout(()=>{
+    const fresh=new Set(),delays=new Map();
+    const s=drawFrom(decks.s);s.hx=LAY.free[0][0]+10;s.hy=LAY.free[0][1]+6;putOn(s,'free',-3);atDeck(s);fresh.add(s);
+    [1,2,3].forEach((k,i)=>{const c=drawFrom(decks.t);c.hx=LAY.free[k][0]+jitter(12);c.hy=LAY.free[k][1]+jitter(12);putOn(c,'free',jitter(4));atDeck(c);fresh.add(c);delays.set(c,160+i*120)});
+    relayout({fresh,delays});
+  },450);
+}
+document.fonts&&document.fonts.ready.then(()=>fit(false));
+})();
+</script>
+
+</body>
+</html>
