@@ -331,14 +331,12 @@ const IC={
 };
 
 /* ---------- demo set (Viktor will replace) ---------- */
-const TOOLS=[[1,'Мозковий штурм'],[3,'Вулична робота'],[6,'Делегувати молоді'],[7,'Нічого не робити'],[8,'Флешмоб'],[10,'Молодь як декорація'],
-[33,'Настільні ігри'],[34,'Кіноперегляд'],[36,'Пікнік'],[42,'Фестиваль'],[45,'Квест'],[65,'Фокус-група'],[66,'Анкетування'],[70,'Мапування у громаді'],
-[74,'Вуличне дослідження'],[85,'Бесіда'],[87,'Дебати'],[89,'Фасилітована сесія'],[92,'Менторство'],[101,'Публікація'],[116,'Вулична акція'],
-[117,'Тренінг'],[118,'Майстер-клас'],[119,'Лекція'],[120,'Форум-театр'],[131,'Рольова гра'],[133,'Світове кафе']];
-const SPECIAL=[[13,'Онлайн'],[18,'Комбінація'],[23,'Крінж-режим'],[26,'Факап-режим']];
+const TOOLS=[[1,'Мозковий штурм'],[3,'Вулична робота'],[6,'Делегувати молоді'],[7,'Нічого не робити'],[10,'Молодь як декорація'],
+[33,'Настільні ігри'],[34,'Кіноперегляд'],[42,'Фестиваль'],[65,'Фокус-група'],[66,'Анкетування'],[70,'Мапування у громаді'],
+[85,'Бесіда'],[87,'Дебати'],[89,'Фасилітована сесія'],[116,'Вулична акція'],[117,'Тренінг'],[120,'Форум-театр'],[133,'Світове кафе']];
+const SPECIAL=[[23,'Крінж-режим'],[26,'Факап-режим']];   // only on the free table
 const SITS=[[4,'Ви організували захід для молоді, проте на нього прийшло лише 3 людини з очікуваних 25.'],[6,'«Наша молодь пасивна!» — сказали працівники місцевого молодіжного центру.'],
-[10,'Молодь втомилась від одноманітного навчання.'],[26,'Парк у громаді не є «дружнім до молоді».'],[31,'Кіновечори збирають все менше молоді.'],
-[40,'У вас з’явилась карткова гра про інструменти молодіжної роботи.'],[1,'Порожня картка для вашої ситуації']];
+[10,'Молодь втомилась від одноманітного навчання.'],[26,'Парк у громаді не є «дружнім до молоді».'],[1,'Порожня картка для вашої ситуації']];
 const MODES=[{id:'stil',label:'Вільний стіл'},{id:'trening',label:'Для тренінгу'},{id:'basic',label:'Базова гра'},{id:'guess',label:'Вгадай слово'}];
 
 const $=s=>document.querySelector(s);
@@ -634,20 +632,16 @@ function setChosen(c){
 }
 
 /* ================= BASIC GAME (one device, hot seat) ================= */
-const G={players:[],target:2,leader:0,phase:'setup',queue:[],cur:null,revealed:false,count:store.get('bcount',3),names:store.get('bnames',['','','',''])};
+const G={players:[],target:2,leader:0,phase:'setup',queue:[],cur:null,revealed:false,count:3,names:store.get('bnames',['','','',''])};
 function basicSetup(){
   G.phase='setup';G.players=[];applyStatic();
   const nameInputs=()=>Array.from({length:G.count},(_,i)=>`<input id="pn${i}" maxlength="16" aria-label="Ім’я гравця ${i+1}" placeholder="Гравець ${i+1}" value="${esc(G.names[i]||'')}">`).join('');
   stage({title:'Базова гра',
     html:`<p>Ведучий читає ситуацію. Інші гравці таємно обирають інструмент зі своїх карток, пояснюють вибір, а ведучий обирає найкращий. Грають з одного пристрою, передаючи його по колу.</p>
-      <div class="row"><span class="k">Гравців</span><div class="seg" id="bc">${[3,4].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${G.count===n}">${n}</button>`).join('')}</div></div>
       <div class="names" id="names">${nameInputs()}</div>
-      <div class="row"><span class="k">Балів для перемоги</span><div class="seg" id="bt">${[2,3].map(n=>`<button class="btn" data-v="${n}" aria-pressed="${G.target===n}">${n}</button>`).join('')}</div></div>
-      <p class="small">У демо — до 4 гравців і без додаткових карток. У повній грі — від 3 до 8 гравців.</p>`,
+      <p class="small">У демо — 3 гравці, гра до 2 балів і без додаткових карток. У повній грі — від 3 до 8 гравців.</p>`,
     acts:[{label:'Почати гру',primary:true,fn:basicStart}],dim:true});
   const sv=()=>{for(let i=0;i<G.count;i++){const el=$('#pn'+i);if(el)G.names[i]=el.value.trim()}};
-  $('#bc').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;sv();G.count=+b.dataset.v;store.set('bcount',G.count);basicSetup()};
-  $('#bt').onclick=e=>{const b=e.target.closest('[data-v]');if(!b)return;G.target=+b.dataset.v;$('#bt').querySelectorAll('.btn').forEach(x=>x.setAttribute('aria-pressed',x===b))};
   $('#names').oninput=sv;
   updateHint();
 }
@@ -1040,17 +1034,27 @@ function hintText(){
     summary:'Передайте пристрій наступній команді.',final:'У повній грі — 122 інструменти.'})[W.phase]||'';
   return '';
 }
+let hintTimer=null,hintShown=null;
 function updateHint(){
   const ht=S.note||hintText();$('#hint').innerHTML=ht;S.note=null;$('#hint').hidden=!ht;
-  $('#help').classList.toggle('closed',!S.hints);
-  $('#helpBtn').setAttribute('aria-pressed',S.hints);
+  if(ht!==hintShown){ // a new hint: show it, then tuck it away by itself after a few seconds
+    hintShown=ht;S.hintAway=false;clearTimeout(hintTimer);
+    if(S.hints&&ht){const len=$('#hint').textContent.length;
+      hintTimer=setTimeout(()=>{S.hintAway=true;$('#help').classList.add('closed');$('#helpBtn').setAttribute('aria-pressed',false)},Math.min(12000,5000+len*45))}
+  }
+  const open=S.hints&&!S.hintAway;
+  $('#help').classList.toggle('closed',!open);
+  $('#helpBtn').setAttribute('aria-pressed',open);
   const pulseOk=S.hints;
   decks.s.el.classList.toggle('pulse',pulseOk&&((S.mode!=='basic'&&S.mode!=='guess'&&S.step===0)||(S.mode==='basic'&&G.phase==='lead')));
   decks.t.el.classList.toggle('pulse',pulseOk&&S.mode==='trening'&&S.step===1);
 }
 function note(html){S.note=html;S.hints=true;updateHint()}
 function blankNote(){updateHint()}
-$('#helpBtn').onclick=()=>{S.hints=!S.hints;store.set('hints',S.hints);updateHint()};
+$('#helpBtn').onclick=()=>{
+  if(S.hints&&S.hintAway){S.hintAway=false}       // tucked away by itself: just show it again
+  else{S.hints=!S.hints;store.set('hints',S.hints)}
+  hintShown=null;updateHint()};
 
 /* ---------- toolbar ---------- */
 function renderBar(){
@@ -1146,7 +1150,226 @@ if(startMode==='stil'){
 document.fonts&&document.fonts.ready.then(()=>fit(false));
 })();
 </script>
-  
-<script src=“demo-limit.js” defer></script>
+
+<!-- Позначки демо: пігулка «ДЕМО» і заблоковані картки -->
+<script>
+/* «Майстерня» — позначки демо.
+   1) Пігулка «ДЕМО» одразу після логотипа (за макетом Figma, node 511-169).
+   2) Коли колода (інструменти чи ситуації) закінчилась — на її місці
+      розмита картка з замком. Натиснули на неї — плашка «Купити гру».
+   Основний код демо не змінюється. */
+(function () {
+  'use strict';
+
+  var BUY_URL = 'https://maisternia-youth-work.com.ua/buy';
+  var TIP_TITLE = 'Більше карток у повній грі';
+  var TIP_TEXT = 'У коробці 122 інструменти, 40 ситуацій і 16 додаткових карток.';
+  var TIP_BTN = 'Придбати гру';
+
+  /* ---------- стилі ---------- */
+  var css = '' +
+    /* пігулка: розміри відносно логотипа (у Figma лого 42 px, пігулка 35 px, заходить на лого на 4 px) */
+    '#demoPill{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;flex:none;' +
+    'box-sizing:border-box;height:calc(var(--logo-h,42px)*0.8333);padding:0 calc(var(--logo-h,42px)*0.238);' +
+    'margin-left:calc(var(--logo-h,42px)*-0.095);align-self:center;transform:translateY(calc(var(--logo-h,42px)*0.083));' +
+    'border-radius:999px;background:#476036;color:#E5F1D4;' +
+    'font-family:"Fixel Text",system-ui,-apple-system,Arial,sans-serif;font-weight:600;' +
+    'font-size:calc(var(--logo-h,42px)*0.31);line-height:1;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;' +
+    'pointer-events:none;user-select:none}' +
+
+    /* заблокована картка поверх порожньої колоди */
+    '.demoLocked{position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;cursor:pointer;' +
+    'border-radius:7px;overflow:hidden;background:var(--card,#DEF2C5);' +
+    'box-shadow:0 2px 3px rgba(var(--shadow,14,24,6),.35),0 8px 18px rgba(var(--shadow,14,24,6),.25)}' +
+    '.demoLocked img{display:block;width:100%;height:100%;object-fit:cover;filter:blur(6px);transform:scale(1.1);opacity:.85;pointer-events:none}' +
+    '.demoLocked .dl-veil{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12%;' +
+    'background:rgba(222,242,197,.62)}' +
+    '.demoLocked .dl-lock{width:52%;aspect-ratio:1;border-radius:50%;background:var(--deep,#40542D);display:grid;place-items:center}' +
+    '.demoLocked .dl-lock svg{width:48%;height:48%;fill:none;stroke:var(--light,#E5F1D4);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}' +
+    '.demoLocked .dl-cap{font:700 13px/1.15 var(--f-text,"Fixel Text",Arial,sans-serif);letter-spacing:.08em;text-transform:uppercase;' +
+    'color:var(--deep,#40542D);text-align:center;padding:0 6px}' +
+    '.demoLocked:focus-visible{outline:3px solid var(--light,#E5F1D4);outline-offset:3px}' +
+
+    /* плашка «Купити гру» (поза столом, щоб не масштабувалась разом із ним) */
+    '#demoBuyTip{position:fixed;z-index:1000;box-sizing:border-box;width:280px;max-width:calc(100vw - 32px);' +
+    'padding:16px 16px 14px;border-radius:16px;background:var(--light,#E5F1D4);color:var(--text,#1d2814);' +
+    'box-shadow:0 8px 24px rgba(var(--shadow,14,24,6),.3)}' +
+    '#demoBuyTip[hidden]{display:none}' +
+    '#demoBuyTip h4{margin:0 26px 6px 0;font:600 16px/1.15 var(--f-text,"Fixel Text",Arial,sans-serif);color:var(--green,#51643C)}' +
+    '#demoBuyTip p{margin:0 0 12px;font:400 13px/1.4 var(--f-text,"Fixel Text",Arial,sans-serif)}' +
+    '#demoBuyTip a{display:inline-flex;align-items:center;height:38px;padding:0 16px;background:var(--green,#51643C);color:var(--light,#E5F1D4);' +
+    'font:500 12px/1 var(--f-text,"Fixel Text",Arial,sans-serif);letter-spacing:.1em;text-transform:uppercase;text-decoration:none}' +
+    '#demoBuyTip .dl-x{position:absolute;top:8px;right:8px;width:28px;height:28px;border:0;background:none;cursor:pointer;' +
+    'color:var(--green,#51643C);font-size:20px;line-height:1}';
+
+  var style = document.createElement('style');
+  style.id = 'demoLimitStyles';
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  /* ---------- 1. пігулка «ДЕМО» ---------- */
+  function addPill() {
+    var logo = document.getElementById('logo');
+    if (!logo || document.getElementById('demoPill')) return;
+    var pill = document.createElement('span');
+    pill.id = 'demoPill';
+    pill.textContent = 'Демо';
+    logo.insertAdjacentElement('afterend', pill);
+
+    var img = logo.querySelector('img') || logo;
+    function sync() {
+      var h = img.getBoundingClientRect().height;
+      if (h > 0) document.documentElement.style.setProperty('--logo-h', h + 'px');
+      // у шапці між елементами є gap — компенсуємо його, щоб пігулка заходила на лого, як у Figma
+      var parent = pill.parentElement;
+      var gap = parent ? parseFloat(getComputedStyle(parent).columnGap) || 0 : 0;
+      pill.style.marginLeft = 'calc(' + (-gap) + 'px + var(--logo-h,42px)*-0.095)';
+    }
+    sync();
+    if (img.complete === false) img.addEventListener('load', sync);
+    if (window.ResizeObserver) new ResizeObserver(sync).observe(img);
+    window.addEventListener('resize', sync);
+  }
+
+  /* ---------- 2. заблоковані картки ---------- */
+  var tip;
+  function buildTip() {
+    tip = document.createElement('div');
+    tip.id = 'demoBuyTip';
+    tip.setAttribute('role', 'dialog');
+    tip.setAttribute('aria-label', TIP_TITLE);
+    tip.hidden = true;
+    tip.innerHTML =
+      '<button class="dl-x" type="button" aria-label="Закрити">×</button>' +
+      '<h4></h4><p></p><a target="_blank" rel="noopener"></a>';
+    tip.querySelector('h4').textContent = TIP_TITLE;
+    tip.querySelector('p').textContent = TIP_TEXT;
+    var a = tip.querySelector('a');
+    a.textContent = TIP_BTN;
+    a.href = BUY_URL;
+    tip.querySelector('.dl-x').addEventListener('click', hideTip);
+    tip.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    tip.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.body.appendChild(tip);
+  }
+
+  function showTip(anchor) {
+    if (!tip) buildTip();
+    tip.hidden = false;
+    var r = anchor.getBoundingClientRect();
+    var w = tip.offsetWidth, h = tip.offsetHeight, gap = 14, m = 16;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = r.right + gap;
+    if (left + w > vw - m) left = r.left - gap - w;          // не влазить праворуч — ліворуч
+    if (left < m) left = Math.max(m, Math.min(vw - w - m, r.left)); // телефон — під карткою, по її лівому краю
+    var top = r.top;
+    if (left === r.right + gap || left === r.left - gap - w) {
+      top = Math.min(Math.max(m, r.top), vh - h - m);
+    } else {
+      top = r.bottom + gap;                                    // під карткою
+      if (top + h > vh - m) top = Math.max(m, r.top - gap - h);
+    }
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(top) + 'px';
+    var link = tip.querySelector('a');
+    if (link && link.focus) link.focus({ preventScroll: true });
+  }
+  function hideTip() { if (tip) tip.hidden = true; }
+
+  document.addEventListener('pointerdown', function (e) {
+    if (tip && !tip.hidden && !e.target.closest('.demoLocked')) hideTip();
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideTip(); });
+  window.addEventListener('wheel', hideTip, { passive: true });
+  window.addEventListener('resize', hideTip);
+
+  // зразок лицьової сторони для розмиття: будь-яка картка цієї колоди, що вже є на сторінці
+  function faceFor(kind) {
+    var re = kind === 's' ? /\/cards\/s\d+s?\.webp/ : /\/cards\/t\d+s?\.webp/;
+    var imgs = document.images;
+    for (var i = 0; i < imgs.length; i++) if (re.test(imgs[i].src)) return imgs[i].src;
+    return 'cards/back-' + kind + '.webp';
+  }
+
+  function deckKind(deck) {
+    var label = deck.querySelector('.label');
+    var t = (label ? label.textContent : deck.textContent || '').toLowerCase();
+    if (t.indexOf('ситуац') !== -1) return 's';
+    if (t.indexOf('інструмент') !== -1) return 't';
+    return null;
+  }
+
+  function deckCount(deck) {
+    var label = deck.querySelector('.label');
+    var m = (label ? label.textContent : '').match(/(\d+)\s*$/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function lockDeck(deck, kind) {
+    if (deck.querySelector(':scope > .demoLocked')) return;
+    if (getComputedStyle(deck).position === 'static') deck.style.position = 'relative';
+    var el = document.createElement('div');
+    el.className = 'demoLocked';
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Колода закінчилась. ' + TIP_TITLE);
+    el.innerHTML =
+      '<img alt="">' +
+      '<div class="dl-veil"><div class="dl-lock"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>' +
+      '<div class="dl-cap">Повна гра</div></div>';
+    el.querySelector('img').src = faceFor(kind);
+    var open = function (e) { e.preventDefault(); e.stopPropagation(); showTip(el); };
+    el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') open(e); });
+    var stack = deck.querySelector('.stack');
+    var box = stack || deck;
+    // кладемо картку точно на місце стосу
+    if (stack) {
+      el.style.left = stack.offsetLeft + 'px';
+      el.style.top = stack.offsetTop + 'px';
+      el.style.width = stack.offsetWidth + 'px';
+      el.style.height = stack.offsetHeight + 'px';
+    }
+    deck.appendChild(el);
+    if (box !== deck) box.style.visibility = 'hidden';
+  }
+
+  function unlockDeck(deck) {
+    var el = deck.querySelector(':scope > .demoLocked');
+    if (!el) return;
+    el.remove();
+    var stack = deck.querySelector('.stack');
+    if (stack) stack.style.visibility = '';
+    hideTip();
+  }
+
+  function scan() {
+    var decks = document.querySelectorAll('.deck');
+    for (var i = 0; i < decks.length; i++) {
+      var d = decks[i], kind = deckKind(d), n = deckCount(d);
+      if (!kind || n === null) continue;
+      if (n === 0) lockDeck(d, kind); else unlockDeck(d);
+    }
+  }
+
+  var queued = false;
+  function queueScan() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(function () { queued = false; scan(); });
+  }
+
+  function start() {
+    addPill();
+    scan();
+    new MutationObserver(queueScan).observe(document.body, { subtree: true, childList: true, characterData: true });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
 </body>
 </html>
